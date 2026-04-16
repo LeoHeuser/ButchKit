@@ -9,3 +9,5 @@ The ButchKit is a helpful SDK containing small tools and modifiers to assist wit
 Minimum version of iOS and iPadOS is 17.0. Minimum macOS is 14.0.
 
 # General Behaviour
+
+- Remember to declare elements as 'public' so that they can be used in a library
