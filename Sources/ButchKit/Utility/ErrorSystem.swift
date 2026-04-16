@@ -1,6 +1,6 @@
 //
 //  ErrorSystem.swift
-//  ButchSDK
+//  ButchKit
 //
 //  Created by Leo Heuser on 07.02.26.
 //

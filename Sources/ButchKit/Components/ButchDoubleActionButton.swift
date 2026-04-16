@@ -1,6 +1,6 @@
 //
 //  ButchDoubleActionButton.swift
-//  ButchSDK
+//  ButchKit
 //
 //  Created by Leo Heuser on 06.11.25.
 //

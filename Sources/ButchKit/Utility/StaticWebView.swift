@@ -1,6 +1,6 @@
 //
 //  StaticWebView.swift
-//  ButchSDK
+//  ButchKit
 //
 //  Created by Leo Heuser on 29.01.26.
 //

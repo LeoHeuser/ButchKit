@@ -1,6 +1,6 @@
 //
 //  ButchButton.swift
-//  ButchSDK
+//  ButchKit
 //
 //  Created by Leo Heuser on 14.10.25.
 //

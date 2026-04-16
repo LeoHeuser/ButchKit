@@ -1,4 +1,4 @@
-# ButchSDK
+# ButchKit
 
 A lean SwiftUI component library extending native Apple platform patterns.
 
@@ -10,14 +10,14 @@ A lean SwiftUI component library extending native Apple platform patterns.
 
 In Xcode:
 1. **File** → **Add Package Dependencies…**
-2. Enter the URL: `https://github.com/LeoHeuser/ButchSDK`
+2. Enter the URL: `https://github.com/LeoHeuser/ButchKit`
 3. Click **Add Package**
 
 Or add it to your `Package.swift` dependencies:
 
 ```swift
 dependencies: [
-.package(url: "https://github.com/LeoHeuser/Butch", from: "1.0.0")
+.package(url: "https://github.com/LeoHeuser/ButchKit", from: "1.0.0")
 ]
 ```
 

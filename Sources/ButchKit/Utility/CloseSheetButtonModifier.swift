@@ -1,6 +1,6 @@
 //
 //  closeSheetButtonModifier.swift
-//  ButchSDK
+//  ButchKit
 //
 //  Created by Leo Heuser on 25.01.26.
 //

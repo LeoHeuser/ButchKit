@@ -1,7 +1,11 @@
-# Context
-- This is a SDK that is written exclusively in Swift. It is called ButchSDK
-- We only use native components and extend them.
-- The code needs to be super lean.
-- All components need to be fitting a pattern that they match an SDK and are super easy to use for other applications.
-- Keep in mind that all "struct", "init" and "view bodies" need to be public so that the elemnts can be used as library components.
-- Documentation of any kind is documented in the header area of each code file using Swift DocC format `/** ... */` with Markdown support. The Xcode-generated file header (filename, project, created by) stays as regular `//` comments.
+# Library Description
+
+The ButchKit is a helpful SDK containing small tools and modifiers to assist with the development of Swift applications for all Apple platforms. It contains functions that are not developed by Apple, but which could be useful in many projects.
+
+
+
+# Requirements
+
+Minimum version of iOS and iPadOS is 17.0. Minimum macOS is 14.0.
+
+# General Behaviour
