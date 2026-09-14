@@ -9,24 +9,27 @@
  Presents a web page in a sheet without sending the user out of the app.
 
  ## Modes
- - `allowsBrowsing: true` (default): Apple's `SFSafariViewController`, with its own Done button,
-   reader mode and free navigation. Use it for articles whose links readers should be able to
-   follow in place.
- - `allowsBrowsing: false`: the page in a ``GatedWebView`` with a close button. Only the page's
-   own domain loads inside the app; links to other domains open in Safari. Use it for legal texts
-   and other fixed content, so the app cannot be turned into a general-purpose browser.
+ `allowsBrowsing` takes a ``WebBrowsing``:
+ - `.everywhere` (default): Apple's `SFSafariViewController`, with its own Done button, reader
+   mode and free navigation. Use it for articles whose links readers should be able to follow in
+   place.
+ - `.onSameDomain`: the page in a ``GatedWebView`` with a close button. Links to the page's
+   domain and its subdomains stay inside the app; links to other domains open in Safari.
+ - `.none`: the same gated sheet, but every tapped link opens in Safari. Use it for legal texts
+   and other pages that are only there to be read, so the app cannot be turned into a
+   general-purpose browser.
 
- The two modes run on different engines because `SFSafariViewController` offers no way to
- intercept navigation: Apple keeps the browsing inside it private from the host app. A gated
- mode therefore has to be a `WKWebView`. macOS has no `SFSafariViewController` and is always
- gated.
+ The modes run on different engines because `SFSafariViewController` offers no way to intercept
+ navigation: Apple keeps the browsing inside it private from the host app. A gated mode
+ therefore has to be a `WKWebView`. macOS has no `SFSafariViewController` and always shows a
+ `GatedWebView`, following the given mode.
 
  ## Usage
  ```swift
  .webViewSheet(isPresented: $isShowingArticle, url: articleURL, dismissTitle: "button.done")
 
  // One sheet for several pages: the item variant builds a fresh sheet per page.
- .webViewSheet(item: $document, url: \.url, dismissTitle: "button.done", title: \.title, allowsBrowsing: false)
+ .webViewSheet(item: $document, url: \.url, dismissTitle: "button.done", title: \.title, allowsBrowsing: .none)
  ```
  */
 
@@ -45,14 +48,13 @@ public extension View {
     ///     Safari mode ignores it, because `SFSafariViewController` brings its own Done button.
     ///   - title: A fixed title for the gated sheet, from the app's catalog. Defaults to `nil`,
     ///     which shows the page's own title. The Safari mode ignores it and shows the domain.
-    ///   - allowsBrowsing: Lets the user follow links to any domain inside the app. Defaults to
-    ///     `true`; pass `false` to keep the sheet on the page's own domain.
+    ///   - allowsBrowsing: Which tapped links stay inside the app. Defaults to `.everywhere`.
     func webViewSheet(
         isPresented: Binding<Bool>,
         url: URL,
         dismissTitle: LocalizedStringKey,
         title: LocalizedStringKey? = nil,
-        allowsBrowsing: Bool = true
+        allowsBrowsing: WebBrowsing = .everywhere
     ) -> some View {
         sheet(isPresented: isPresented) {
             WebViewSheetContent(url: url, dismissTitle: dismissTitle, title: title, allowsBrowsing: allowsBrowsing)
@@ -72,14 +74,13 @@ public extension View {
     ///     Safari mode ignores it, because `SFSafariViewController` brings its own Done button.
     ///   - title: A fixed title per item for the gated sheet, from the app's catalog. Defaults to
     ///     `nil`, which shows the page's own title. The Safari mode ignores it and shows the domain.
-    ///   - allowsBrowsing: Lets the user follow links to any domain inside the app. Defaults to
-    ///     `true`; pass `false` to keep the sheet on the page's own domain.
+    ///   - allowsBrowsing: Which tapped links stay inside the app. Defaults to `.everywhere`.
     func webViewSheet<Item: Identifiable>(
         item: Binding<Item?>,
         url: @escaping (Item) -> URL,
         dismissTitle: LocalizedStringKey,
         title: ((Item) -> LocalizedStringKey)? = nil,
-        allowsBrowsing: Bool = true
+        allowsBrowsing: WebBrowsing = .everywhere
     ) -> some View {
         sheet(item: item) { item in
             WebViewSheetContent(url: url(item), dismissTitle: dismissTitle, title: title?(item), allowsBrowsing: allowsBrowsing)
@@ -91,18 +92,18 @@ private struct WebViewSheetContent: View {
     let url: URL
     let dismissTitle: LocalizedStringKey
     let title: LocalizedStringKey?
-    let allowsBrowsing: Bool
+    let allowsBrowsing: WebBrowsing
 
     var body: some View {
         #if os(iOS)
-        if allowsBrowsing {
+        if allowsBrowsing == .everywhere {
             SafariView(url: url)
                 .ignoresSafeArea()
         } else {
-            GatedSheetContent(url: url, dismissTitle: dismissTitle, title: title)
+            GatedSheetContent(url: url, dismissTitle: dismissTitle, title: title, allowsBrowsing: allowsBrowsing)
         }
         #else
-        GatedSheetContent(url: url, dismissTitle: dismissTitle, title: title)
+        GatedSheetContent(url: url, dismissTitle: dismissTitle, title: title, allowsBrowsing: allowsBrowsing)
         #endif
     }
 }
@@ -111,10 +112,11 @@ private struct GatedSheetContent: View {
     let url: URL
     let dismissTitle: LocalizedStringKey
     let title: LocalizedStringKey?
+    let allowsBrowsing: WebBrowsing
 
     var body: some View {
         NavigationStack {
-            GatedWebView(url.absoluteString, navigationTitle: title)
+            GatedWebView(url.absoluteString, navigationTitle: title, allowsBrowsing: allowsBrowsing)
                 .sheetDismissButton(dismissTitle)
         }
     }
@@ -134,16 +136,23 @@ private struct SafariView: UIViewControllerRepresentable {
 
 // MARK: - Preview
 
-#Preview("Browsing") {
+#Preview("Everywhere") {
     @Previewable @State var isPresented = true
 
     Button("Show Sheet") { isPresented = true }
         .webViewSheet(isPresented: $isPresented, url: URL(string: "https://en.wikipedia.org/wiki/Ivy_Lee")!, dismissTitle: "Close")
 }
 
-#Preview("Gated") {
+#Preview("On Same Domain") {
     @Previewable @State var isPresented = true
 
     Button("Show Sheet") { isPresented = true }
-        .webViewSheet(isPresented: $isPresented, url: URL(string: "https://www.apple.com/privacy")!, dismissTitle: "Close", title: "Privacy", allowsBrowsing: false)
+        .webViewSheet(isPresented: $isPresented, url: URL(string: "https://www.apple.com/privacy")!, dismissTitle: "Close", title: "Privacy", allowsBrowsing: .onSameDomain)
+}
+
+#Preview("None") {
+    @Previewable @State var isPresented = true
+
+    Button("Show Sheet") { isPresented = true }
+        .webViewSheet(isPresented: $isPresented, url: URL(string: "https://www.apple.com/privacy")!, dismissTitle: "Close", title: "Privacy", allowsBrowsing: .none)
 }

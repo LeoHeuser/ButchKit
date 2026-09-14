@@ -6,14 +6,14 @@
 //
 
 /**
- A web view locked to its page's domain, for fixed, trusted content.
- 
+ A web view for fixed, trusted content that decides which tapped links stay in it.
+
  ## Features
- - Loads a single URL without allowing navigation away from the initial domain
+ - Loads a single URL; ``WebBrowsing`` decides how far the user may follow links from there
  - Automatically sends Accept-Language headers based on device or app language
  - Configurable JavaScript support (disabled by default for security)
  - Configurable cache policy (bypasses cache by default for always-fresh content)
- - External links open in Safari automatically
+ - Links it does not keep open in Safari automatically
  - Automatic URL validation with error handling
  - Designed to be used within a NavigationStack for title display
  - Supports custom navigation title or automatic website title
@@ -47,9 +47,10 @@
  
  ## Security
  - JavaScript is disabled by default
- - Navigation is restricted to the same domain
- - User-activated links to external domains open in Safari
- - Redirects and server-side navigation within the same domain are allowed
+ - Tapped links follow `allowsBrowsing`: `.onSameDomain` by default, `.none` for pages that are
+   only there to be read
+ - Tapped links the view does not keep open in Safari
+ - The first page and its redirects always load
  */
 
 import SwiftUI
@@ -61,21 +62,26 @@ public struct GatedWebView: View {
     let allowsJavaScript: Bool
     let cachePolicy: URLRequest.CachePolicy
     let navigationTitle: LocalizedStringKey?
-    
+    let allowsBrowsing: WebBrowsing
+
     @State private var pageTitle: String = ""
-    
+
+    /// - Parameter allowsBrowsing: Which tapped links stay in the view. Defaults to
+    ///   `.onSameDomain`.
     public init(
         _ url: String,
         navigationTitle: LocalizedStringKey? = nil,
         useAppLanguage: Bool = false,
         allowsJavaScript: Bool = false,
-        cachePolicy: URLRequest.CachePolicy = .reloadIgnoringLocalAndRemoteCacheData
+        cachePolicy: URLRequest.CachePolicy = .reloadIgnoringLocalAndRemoteCacheData,
+        allowsBrowsing: WebBrowsing = .onSameDomain
     ) {
         self.url = url
         self.navigationTitle = navigationTitle
         self.useAppLanguage = useAppLanguage
         self.allowsJavaScript = allowsJavaScript
         self.cachePolicy = cachePolicy
+        self.allowsBrowsing = allowsBrowsing
     }
     
     public var body: some View {
@@ -85,6 +91,7 @@ public struct GatedWebView: View {
                 useAppLanguage: useAppLanguage,
                 allowsJavaScript: allowsJavaScript,
                 cachePolicy: cachePolicy,
+                allowsBrowsing: allowsBrowsing,
                 pageTitle: $pageTitle
             )
             .navigationTitle(navigationTitle.map { Text($0) } ?? Text(pageTitle))
@@ -117,6 +124,7 @@ private struct GatedWebViewRepresentable: UIViewRepresentable {
     let useAppLanguage: Bool
     let allowsJavaScript: Bool
     let cachePolicy: URLRequest.CachePolicy
+    let allowsBrowsing: WebBrowsing
     @Binding var pageTitle: String
     @Environment(\.openURL) private var openURL
 
@@ -127,7 +135,7 @@ private struct GatedWebViewRepresentable: UIViewRepresentable {
     func updateUIView(_ webView: WKWebView, context: Context) {}
 
     func makeCoordinator() -> NavigationHandler {
-        NavigationHandler(allowedUrl: url, openURL: openURL, pageTitle: $pageTitle)
+        NavigationHandler(startURL: url, allowsBrowsing: allowsBrowsing, openURL: openURL, pageTitle: $pageTitle)
     }
 
     static func dismantleUIView(_ webView: WKWebView, coordinator: NavigationHandler) {
@@ -141,6 +149,7 @@ private struct GatedWebViewRepresentable: NSViewRepresentable {
     let useAppLanguage: Bool
     let allowsJavaScript: Bool
     let cachePolicy: URLRequest.CachePolicy
+    let allowsBrowsing: WebBrowsing
     @Binding var pageTitle: String
     @Environment(\.openURL) private var openURL
 
@@ -151,7 +160,7 @@ private struct GatedWebViewRepresentable: NSViewRepresentable {
     func updateNSView(_ webView: WKWebView, context: Context) {}
 
     func makeCoordinator() -> NavigationHandler {
-        NavigationHandler(allowedUrl: url, openURL: openURL, pageTitle: $pageTitle)
+        NavigationHandler(startURL: url, allowsBrowsing: allowsBrowsing, openURL: openURL, pageTitle: $pageTitle)
     }
 
     static func dismantleNSView(_ webView: WKWebView, coordinator: NavigationHandler) {
@@ -183,12 +192,14 @@ private extension GatedWebViewRepresentable {
 
 @MainActor
 final class NavigationHandler: NSObject, WKNavigationDelegate {
-    private let allowedUrl: URL
+    private let startURL: URL
+    private let allowsBrowsing: WebBrowsing
     private let openURL: OpenURLAction
     @Binding private var pageTitle: String
-    
-    init(allowedUrl: URL, openURL: OpenURLAction, pageTitle: Binding<String>) {
-        self.allowedUrl = allowedUrl
+
+    init(startURL: URL, allowsBrowsing: WebBrowsing, openURL: OpenURLAction, pageTitle: Binding<String>) {
+        self.startURL = startURL
+        self.allowsBrowsing = allowsBrowsing
         self.openURL = openURL
         self._pageTitle = pageTitle
         super.init()
@@ -205,22 +216,15 @@ final class NavigationHandler: NSObject, WKNavigationDelegate {
         }
     }
     
-    private func isSameDomain(_ url1: URL, _ url2: URL) -> Bool {
-        func normalizedHost(_ url: URL) -> String {
-            url.host?.lowercased().replacingOccurrences(of: "^www\\.", with: "", options: .regularExpression) ?? ""
-        }
-        let host1 = normalizedHost(url1)
-        return !host1.isEmpty && host1 == normalizedHost(url2)
-    }
-    
     func webView(
         _ webView: WKWebView,
         decidePolicyFor navigationAction: WKNavigationAction
     ) async -> WKNavigationActionPolicy {
         guard let requestUrl = navigationAction.request.url else { return .cancel }
         guard webView.url != nil else { return .allow }
-        
-        if navigationAction.navigationType == .linkActivated, !isSameDomain(requestUrl, allowedUrl) {
+
+        if navigationAction.navigationType == .linkActivated,
+           !allowsBrowsing.keepsInApp(requestUrl, startURL: startURL, currentURL: webView.url) {
             openURL(requestUrl)
             return .cancel
         }
@@ -254,7 +258,8 @@ final class NavigationHandler: NSObject, WKNavigationDelegate {
             navigationTitle: "Terms & Conditions",
             useAppLanguage: true,
             allowsJavaScript: true,
-            cachePolicy: .useProtocolCachePolicy
+            cachePolicy: .useProtocolCachePolicy,
+            allowsBrowsing: .none
         )
     }
 }
