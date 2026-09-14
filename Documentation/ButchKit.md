@@ -12,6 +12,7 @@ Prose that applies across the library. These are binding for how we build, not d
 
 - [Logging Strategy](LoggingStrategy.md) — where, what, and at which level we log.
 - [Paywall](Paywall.md) — how an app sells its subscription: setup, gating, presenting, analytics.
+- [Acknowledgments](Acknowledgments.md) — how an app lists its external packages and lets the user turn the optional ones off: setup, gating, reacting to the switch, TelemetryDeck.
 
 ## Localization
 
@@ -74,6 +75,15 @@ Every type is documented in code. This is the map.
 - `PaywallRequest` — the presentation in flight.
 - `PaywallStatusRow` — the settings row: plan name, renewal date and management, or the offer.
 - `View.paywallSheet()` — reinforcement for views that are themselves sheets.
+
+### Acknowledgments
+
+`Sources/ButchKit/General Utility/ExternalPackagesView/` — setup in [Acknowledgments.md](Acknowledgments.md).
+
+- `ExternalPackagesView` — the app's external packages, one section each, with a switch under every package the user may turn off. Opened from wherever the app likes.
+- `PackageDescription` — one package: name, license, purpose, source, whether it is optional, and what the app does when its switch flips.
+- `PackageID` — the name a package is switched under, and `isEnabled`, the gate the app asks before it runs the package. On until the user turns it off.
+- `ExternalPackagesTexts` — every word the list shows, handed in by the app.
 
 ### General utility
 
