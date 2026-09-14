@@ -79,8 +79,9 @@ Every type is documented in code. This is the map.
 
 `Sources/ButchKit/General Utility/`
 
-- `StaticWebView` — a web view for fixed, trusted content.
+- `GatedWebView` — a web view for fixed, trusted content; links to other domains open in Safari.
 - `WebViewButton` — a button that presents one.
+- `View.webViewSheet(isPresented:url:dismissTitle:title:allowsBrowsing:)`, `View.webViewSheet(item:url:dismissTitle:title:allowsBrowsing:)` — a web page in a sheet: Safari by default, or a `GatedWebView` with `allowsBrowsing: false`.
 - `View.sheetDismissButton(_:)` — a native close button for sheets, named by the app.
 - `View.useContentHeightPresentationDetent` — sizes a sheet to its content.
 - `View.onShake(isEnabled:respectsShakeToUndoSetting:perform:)` — runs an action when the device is shaken (iOS only).

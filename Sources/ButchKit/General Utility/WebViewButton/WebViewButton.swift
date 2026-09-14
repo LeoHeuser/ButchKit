@@ -6,7 +6,7 @@
 //
 
 /**
- A button that presents web content in a sheet using StaticWebView.
+ A button that presents web content in a sheet using GatedWebView.
 
  ## Features
  - Displays web content in a modal sheet
@@ -81,7 +81,7 @@ public struct WebViewButton: View {
         }
         .sheet(isPresented: $showingWebView) {
             NavigationStack {
-                StaticWebView(
+                GatedWebView(
                     url,
                     navigationTitle: title,
                     useAppLanguage: useAppLanguage,

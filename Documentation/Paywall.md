@@ -214,7 +214,7 @@ The paywall is fixed. For every app:
 - Photo pages from `paywallFeatures`, swipeable, advancing every five seconds, pausing for fifteen after a swipe. Page dots are always visible.
 - Title in `.title.bold`, description in `.headline`. On a page with a photo the text sits at the bottom, over a gradient that fades the photo out; on a page without one it centres.
 - Apple's subscription controls below. One plan in the group shows a single Subscribe button; several show Apple's picker with one Subscribe button under it. StoreKit picks that from the group itself, so adding a tier in App Store Connect needs no code change. Introductory offers are shown by StoreKit either way.
-- Restore Purchases, and Privacy Policy plus Terms of Service when both URLs are configured. Policies open in `StaticWebView` inside the sheet.
+- Restore Purchases, and Privacy Policy plus Terms of Service when both URLs are configured. Policies open in `GatedWebView` inside the sheet.
 - A close button in the toolbar. Dark appearance regardless of the device setting.
 - On success the sheet closes on its own. On failure a native alert.
 

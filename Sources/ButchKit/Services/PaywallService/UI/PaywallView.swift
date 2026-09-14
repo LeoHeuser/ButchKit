@@ -137,7 +137,7 @@ private extension View {
         if let url {
             subscriptionStorePolicyDestination(for: policy) {
                 NavigationStack {
-                    StaticWebView(url, navigationTitle: title)
+                    GatedWebView(url, navigationTitle: title)
                 }
             }
         } else {

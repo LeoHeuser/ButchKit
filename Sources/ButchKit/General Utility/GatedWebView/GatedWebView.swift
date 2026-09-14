@@ -1,12 +1,12 @@
 //
-//  StaticWebView.swift
+//  GatedWebView.swift
 //  ButchKit
 //
 //  Created by Leo Heuser on 29.01.26.
 //
 
 /**
- A static, security-focused web view component for displaying web content.
+ A web view locked to its page's domain, for fixed, trusted content.
  
  ## Features
  - Loads a single URL without allowing navigation away from the initial domain
@@ -21,17 +21,17 @@
  ## Usage
  ```swift
  // Basic usage - title from website
- StaticWebView("https://example.com/privacy")
+ GatedWebView("https://example.com/privacy")
  
  // Custom navigation title
- StaticWebView("apple.com/privacy", navigationTitle: "Privacy Policy")
+ GatedWebView("apple.com/privacy", navigationTitle: "Privacy Policy")
  
  // URLs without scheme automatically get https:// prefix
- StaticWebView("apple.com/privacy")  // → https://apple.com/privacy
- StaticWebView("www.apple.com")      // → https://www.apple.com
+ GatedWebView("apple.com/privacy")  // → https://apple.com/privacy
+ GatedWebView("www.apple.com")      // → https://www.apple.com
  
  // With custom options
- StaticWebView(
+ GatedWebView(
  "example.com",
  navigationTitle: "Terms",
  useAppLanguage: true,
@@ -55,7 +55,7 @@
 import SwiftUI
 import WebKit
 
-public struct StaticWebView: View {
+public struct GatedWebView: View {
     let url: String
     let useAppLanguage: Bool
     let allowsJavaScript: Bool
@@ -80,7 +80,7 @@ public struct StaticWebView: View {
     
     public var body: some View {
         if let validUrl = normalizedURL(from: url) {
-            StaticWebViewRepresentable(
+            GatedWebViewRepresentable(
                 url: validUrl,
                 useAppLanguage: useAppLanguage,
                 allowsJavaScript: allowsJavaScript,
@@ -112,7 +112,7 @@ public struct StaticWebView: View {
 
 #if os(iOS)
 @MainActor
-private struct StaticWebViewRepresentable: UIViewRepresentable {
+private struct GatedWebViewRepresentable: UIViewRepresentable {
     let url: URL
     let useAppLanguage: Bool
     let allowsJavaScript: Bool
@@ -136,7 +136,7 @@ private struct StaticWebViewRepresentable: UIViewRepresentable {
 }
 #elseif os(macOS)
 @MainActor
-private struct StaticWebViewRepresentable: NSViewRepresentable {
+private struct GatedWebViewRepresentable: NSViewRepresentable {
     let url: URL
     let useAppLanguage: Bool
     let allowsJavaScript: Bool
@@ -160,7 +160,7 @@ private struct StaticWebViewRepresentable: NSViewRepresentable {
 }
 #endif
 
-private extension StaticWebViewRepresentable {
+private extension GatedWebViewRepresentable {
     func configuredWebView(coordinator: NavigationHandler) -> WKWebView {
         let config = WKWebViewConfiguration()
         config.defaultWebpagePreferences.allowsContentJavaScript = allowsJavaScript
@@ -233,23 +233,23 @@ final class NavigationHandler: NSObject, WKNavigationDelegate {
 
 #Preview("Default (Website Title)") {
     NavigationStack {
-        StaticWebView("https://www.apple.com/privacy")
+        GatedWebView("https://www.apple.com/privacy")
     }
 }
 
 #Preview("Custom Title") {
     NavigationStack {
-        StaticWebView("apple.com/privacy", navigationTitle: "Privacy Policy")
+        GatedWebView("apple.com/privacy", navigationTitle: "Privacy Policy")
     }
 }
 
 #Preview("Invalid URL") {
-    StaticWebView("wrong")
+    GatedWebView("wrong")
 }
 
 #Preview("With All Options") {
     NavigationStack {
-        StaticWebView(
+        GatedWebView(
             "example.com",
             navigationTitle: "Terms & Conditions",
             useAppLanguage: true,
