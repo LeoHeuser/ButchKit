@@ -17,7 +17,7 @@ set -euo pipefail
 
 version=${1:?usage: release.sh <version, e.g. 1.4.5>}
 kit=$(cd "$(dirname "$0")/.." && pwd)
-apps=("$kit/../Kadidi" "$kit/../VideoKlipp" "$kit/../Docscn" "$kit/../FocusSix")
+apps=("$kit/../Kadidi" "$kit/../VideoKlipp" "$kit/../Docscn" "$kit/../FocusSix" "$kit/../VideoSkript")
 
 cd "$kit"
 [[ $(git branch --show-current) == main ]] || { echo "ButchKit is not on main"; exit 1 }
