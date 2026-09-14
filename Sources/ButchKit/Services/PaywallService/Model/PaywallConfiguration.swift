@@ -9,7 +9,7 @@ import Foundation
 
 /// Everything the paywall needs to know about one app's subscription.
 ///
-/// A value, declared once in the app and handed to `View.paywallEnvironment(_:features:)`:
+/// A value, declared once in the app and handed to `View.paywallEnvironment(_:texts:features:)`:
 ///
 /// ```swift
 /// let paywallConfig = PaywallConfiguration(

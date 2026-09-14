@@ -10,11 +10,11 @@ import SwiftUI
 /// Creates the service, injects it and attaches the paywall sheet at the root.
 struct PaywallEnvironmentModifier: ViewModifier {
     @State private var service: PaywallService
-    
-    init(configuration: PaywallConfiguration, features: [PayWallFeature]) {
-        _service = State(initialValue: PaywallService(configuration: configuration, features: features))
+
+    init(configuration: PaywallConfiguration, texts: PaywallTexts, features: [PayWallFeature]) {
+        _service = State(initialValue: PaywallService(configuration: configuration, texts: texts, features: features))
     }
-    
+
     func body(content: Content) -> some View {
         content
             .modifier(PaywallSheetModifier(isRoot: true))
@@ -30,9 +30,9 @@ struct PaywallEnvironmentModifier: ViewModifier {
 /// instance sees no request for as long as one is.
 struct PaywallSheetModifier: ViewModifier {
     let isRoot: Bool
-    
+
     @Environment(PaywallService.self) private var paywall
-    
+
     func body(content: Content) -> some View {
         content
             .sheet(
@@ -58,7 +58,7 @@ public extension View {
     ///
     /// ```swift
     /// RootView()
-    ///     .paywallEnvironment(paywallConfig, features: paywallFeatures)
+    ///     .paywallEnvironment(paywallConfig, texts: paywallTexts, features: paywallFeatures)
     /// ```
     ///
     /// The pages are optional. Without them the paywall drops its own marketing content and shows
@@ -67,24 +67,29 @@ public extension View {
     ///
     /// ```swift
     /// RootView()
-    ///     .paywallEnvironment(paywallConfig)
+    ///     .paywallEnvironment(paywallConfig, texts: paywallTexts)
     /// ```
     ///
     /// - Parameters:
     ///   - configuration: The subscription group and policy URLs.
+    ///   - texts: Every word the paywall and the settings row show, from the app's own catalogs.
     ///   - features: The marketing pages the paywall shows, in order. Leave them out and the
     ///     paywall shows Apple's own storefront instead.
-    func paywallEnvironment(_ configuration: PaywallConfiguration, features: [PayWallFeature] = []) -> some View {
-        modifier(PaywallEnvironmentModifier(configuration: configuration, features: features))
+    func paywallEnvironment(
+        _ configuration: PaywallConfiguration,
+        texts: PaywallTexts,
+        features: [PayWallFeature] = []
+    ) -> some View {
+        modifier(PaywallEnvironmentModifier(configuration: configuration, texts: texts, features: features))
     }
-    
+
     /// Reinforcement for views that are themselves presented as a sheet.
     ///
     /// SwiftUI presents one sheet per view. While a Settings sheet is open, the root sheet cannot
     /// appear on top of it, so a `present(source:)` from inside Settings would go nowhere. Apply
     /// this once to the content of such a sheet and the paywall presents from there instead.
     /// Views pushed onto a `NavigationStack` need nothing. Requires that a parent already
-    /// applied `.paywallEnvironment(_:features:)`.
+    /// applied `.paywallEnvironment(_:texts:features:)`.
     func paywallSheet() -> some View {
         modifier(PaywallSheetModifier(isRoot: false))
     }

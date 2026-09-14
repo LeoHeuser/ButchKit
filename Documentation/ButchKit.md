@@ -15,11 +15,14 @@ Prose that applies across the library. These are binding for how we build, not d
 
 ## Localization
 
-ButchKit ships no strings. Every `LocalizedStringKey` it renders resolves in the consuming app's
-bundle, so the app owns the wording and the translations, and a ButchKit surface speaks every
-language the app does.
+ButchKit ships no strings and names no keys. Every text a ButchKit view shows is handed in by the
+app: as a `LocalizedStringKey`, as a `String` the app resolved from its own table, or as a
+closure that builds a `Text`. The key is therefore written in the app's code, where Xcode finds
+it and extracts it into the app's catalog like any other string. The app owns the wording, the
+keys and the translations, nothing is added to a catalog by hand, and a ButchKit surface speaks
+every language the app does.
 
-Which catalog a key is looked up in depends on what the string is:
+Which table a key lives in is the app's choice. The convention across our apps:
 
 | Table | For |
 |---|---|
@@ -27,12 +30,11 @@ Which catalog a key is looked up in depends on what the string is:
 | `Errors` | Anything the user reads because something went wrong. Rendered with `Text(error:)`. |
 | `Accessibility` | Labels, hints and values only assistive technologies read. |
 
-An app adopting ButchKit therefore needs at least `Localizable.xcstrings` and `Errors.xcstrings`.
 A key looked up in the wrong table has no match and renders as the key itself, which is what the
 user then reads.
 
-A button stays on `Localizable` even when it sits in an alert: `button.ok` is a button, not an
-error. The table follows what the string *is*, not where it appears.
+A button stays on `Localizable` even when it sits in an alert: it is a button, not an error. The
+table follows what the string *is*, not where it appears.
 
 ## What's in the library
 
@@ -57,19 +59,20 @@ Every type is documented in code. This is the map.
 
 - `UFEService` — collects errors from anywhere and surfaces them through one native alert.
 - `UFError`, `UFErrorLevel` — the shape an error needs to be presentable.
-- `View.userFacingErrors(_:)` — root-level integration.
+- `View.userFacingErrors(_:dismissTitle:)` — root-level integration.
 
 ### Paywall
 
 `Sources/ButchKit/Services/PaywallService/`
 
-- `View.paywallEnvironment(_:features:)` — root-level integration. Creates the service, injects it and attaches the paywall sheet.
+- `View.paywallEnvironment(_:texts:features:)` — root-level integration. Creates the service, injects it and attaches the paywall sheet.
 - `PaywallService` — `hasSubscription`, fed by StoreKit 2, plus `present(source:)` and `require(source:_:)` to show the paywall from anywhere.
 - `PaywallConfiguration` — the subscription group and policy URLs.
+- `PaywallTexts` — every word the paywall and the settings row show, handed in by the app.
 - `PayWallFeature` — one marketing page: title, description, image.
 - `PaywallEvent` — the funnel, forwarded through `PaywallService.onEvent` to the app's analytics.
 - `PaywallRequest` — the presentation in flight.
-- `PaywallStatusRow` — the settings row: subscription status and management, or the offer.
+- `PaywallStatusRow` — the settings row: plan name, renewal date and management, or the offer.
 - `View.paywallSheet()` — reinforcement for views that are themselves sheets.
 
 ### General utility
@@ -78,7 +81,7 @@ Every type is documented in code. This is the map.
 
 - `StaticWebView` — a web view for fixed, trusted content.
 - `WebViewButton` — a button that presents one.
-- `View.sheetDismissButton()` — a native close button for sheets.
+- `View.sheetDismissButton(_:)` — a native close button for sheets, named by the app.
 - `View.useContentHeightPresentationDetent` — sizes a sheet to its content.
 - `View.onShake(isEnabled:respectsShakeToUndoSetting:perform:)` — runs an action when the device is shaken (iOS only).
 - `StringTable`, `Text.init(error:)` — which catalog a string resolves in.

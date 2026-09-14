@@ -33,6 +33,6 @@ Prose that applies across the library lives in [`Documentation/`](Documentation/
 
 ## Localization
 
-ButchKit ships no strings. Every key it renders resolves in your app's catalog, so a consuming app
-needs at least `Localizable.xcstrings` and `Errors.xcstrings` -- errors come from the second one.
+ButchKit ships no strings. Every text it shows is handed in by your app, so each key is written
+in your code and Xcode extracts it into your catalogs like any other string.
 See [Localization](Documentation/ButchKit.md#localization) for which string goes where.

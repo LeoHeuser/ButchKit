@@ -15,7 +15,7 @@
  Integrate it once on the root view, with the app's configuration and marketing pages:
  ```swift
  RootView()
-     .paywallEnvironment(paywallConfig, features: paywallFeatures)
+     .paywallEnvironment(paywallConfig, texts: paywallTexts, features: paywallFeatures)
  ```
 
  Then read it anywhere below like a native environment value:
@@ -40,7 +40,7 @@
 
  ## Direct construction
  The root modifier creates the service for you. Tests, previews and code outside a view hierarchy
- construct one directly: `PaywallService(configuration: config)`, then call `initialize()` once to
+ construct one directly: `PaywallService(configuration: config, texts: texts)`, then call `initialize()` once to
  start following StoreKit.
 
  */
@@ -58,6 +58,8 @@ public final class PaywallService {
     public let configuration: PaywallConfiguration
     /// The marketing pages the paywall shows, in order.
     public let features: [PayWallFeature]
+    /// Every word the paywall and the settings row show, supplied by the app.
+    public let texts: PaywallTexts
 
     // MARK: - State
 
@@ -94,20 +96,39 @@ public final class PaywallService {
     ///
     /// - Parameters:
     ///   - configuration: The subscription group and policy URLs.
+    ///   - texts: Every word the paywall and the settings row show.
     ///   - features: The marketing pages the paywall shows.
     ///   - subsystem: Where to log. Defaults to the app's own subsystem, see ``LoggerService``.
     public init(
         configuration: PaywallConfiguration,
+        texts: PaywallTexts,
         features: [PayWallFeature] = [],
         subsystem: String? = nil
     ) {
         self.configuration = configuration
+        self.texts = texts
         self.features = features
         self.logger = LoggerService(subsystem: subsystem)["Purchase"]
         // Restore the last known state so a subscriber sees no paywall flash while StoreKit
         // answers asynchronously after launch.
         self.hasSubscription = UserDefaults.standard.bool(forKey: Self.cacheKey)
     }
+
+#if DEBUG
+    /// A service with a fixed answer, for previews: StoreKit has nothing to say in a preview, so
+    /// without this every preview shows a user who does not pay. It never talks to StoreKit and
+    /// never writes the cache, so a preview of a subscriber leaves the next launch untouched.
+    ///
+    /// - Parameters:
+    ///   - configuration: The subscription group, which the settings row still reads.
+    ///   - texts: The app's own words, so the preview reads like the app.
+    ///   - previewSubscribed: What ``hasSubscription`` answers.
+    public convenience init(configuration: PaywallConfiguration, texts: PaywallTexts, previewSubscribed: Bool) {
+        self.init(configuration: configuration, texts: texts)
+        hasSubscription = previewSubscribed
+        isInitialized = true
+    }
+#endif
 
     // SE-0371 isolated deinit: runs on the MainActor so it can reach the isolated task.
     isolated deinit {

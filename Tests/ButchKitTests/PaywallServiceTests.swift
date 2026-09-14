@@ -1,4 +1,5 @@
 import Foundation
+import StoreKit
 import Testing
 @testable import ButchKit
 
@@ -30,7 +31,7 @@ struct PaywallServiceTests {
     /// The cache survives between test runs in the host's defaults; every test starts unsubscribed.
     private func makeService() -> PaywallService {
         UserDefaults.standard.removeObject(forKey: PaywallService.cacheKey)
-        return PaywallService(configuration: config)
+        return PaywallService(configuration: config, texts: .preview)
     }
 
     @Test("Starts uninitialized with its configuration")
@@ -117,8 +118,79 @@ struct PaywallServiceTests {
     func restoresCache() {
         let first = makeService()
         first.handleSuccessfulPurchase()
-        let second = PaywallService(configuration: config)
+        let second = PaywallService(configuration: config, texts: .preview)
         #expect(second.hasSubscription)
         UserDefaults.standard.removeObject(forKey: PaywallService.cacheKey)
+    }
+}
+
+@Suite("SubscriptionDetail")
+struct SubscriptionDetailTests {
+    private let date = Date(timeIntervalSince1970: 1_800_000_000)
+
+    @Test("Renews when auto-renew is on")
+    func renews() {
+        #expect(SubscriptionDetail(state: .subscribed, willAutoRenew: true, expirationDate: date) == .renews(date))
+    }
+
+    @Test("Ends when auto-renew is off")
+    func ends() {
+        #expect(SubscriptionDetail(state: .subscribed, willAutoRenew: false, expirationDate: date) == .ends(date))
+    }
+
+    /// Grace period and billing retry read the same to the user: the payment needs attention,
+    /// whichever date StoreKit reports.
+    @Test("Reports a billing issue while the App Store retries", arguments: [
+        Product.SubscriptionInfo.RenewalState.inGracePeriod,
+        .inBillingRetryPeriod
+    ])
+    func billingIssue(state: Product.SubscriptionInfo.RenewalState) {
+        #expect(SubscriptionDetail(state: state, willAutoRenew: true, expirationDate: date) == .billingIssue)
+    }
+
+    /// A renewal line without a date would promise something the row cannot back up.
+    @Test("Says nothing for a subscription without a date")
+    func noDate() {
+        #expect(SubscriptionDetail(state: .subscribed, willAutoRenew: true, expirationDate: nil) == nil)
+    }
+
+    @Test("Says nothing once access is gone", arguments: [
+        Product.SubscriptionInfo.RenewalState.expired,
+        .revoked
+    ])
+    func noAccess(state: Product.SubscriptionInfo.RenewalState) {
+        #expect(SubscriptionDetail(state: state, willAutoRenew: true, expirationDate: date) == nil)
+    }
+}
+
+@Suite("HeldPlan")
+struct HeldPlanTests {
+    private let earlier = Date(timeIntervalSince1970: 1_800_000_000)
+    private let later = Date(timeIntervalSince1970: 1_900_000_000)
+
+    private func plan(_ state: Product.SubscriptionInfo.RenewalState, _ productID: String, expiring date: Date?) -> HeldPlan {
+        HeldPlan(state: state, productID: productID, expirationDate: date, willAutoRenew: true)
+    }
+
+    /// With Family Sharing, a paid-up plan is the one worth naming, even when a plan with a
+    /// payment problem runs longer.
+    @Test("Prefers a paid-up plan over one with a payment problem")
+    func prefersSubscribed() {
+        let paid = plan(.subscribed, "yearly", expiring: earlier)
+        let unpaid = plan(.inGracePeriod, "monthly", expiring: later)
+        #expect(HeldPlan.current(in: [unpaid, paid]) == paid)
+    }
+
+    @Test("Takes the plan that runs longest among equals")
+    func prefersLongest() {
+        let short = plan(.subscribed, "monthly", expiring: earlier)
+        let long = plan(.subscribed, "yearly", expiring: later)
+        #expect(HeldPlan.current(in: [long, short]) == long)
+    }
+
+    @Test("Ignores statuses that no longer grant access")
+    func ignoresLapsed() {
+        let plans = [plan(.expired, "monthly", expiring: later), plan(.revoked, "yearly", expiring: later)]
+        #expect(HeldPlan.current(in: plans) == nil)
     }
 }

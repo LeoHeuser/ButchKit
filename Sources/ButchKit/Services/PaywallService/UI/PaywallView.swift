@@ -37,17 +37,17 @@ struct PaywallView: View {
             // button. `.buttons` was fixed here and forced a full-width button per tier,
             // which crushed the marketing pages above it.
                 .subscriptionStoreControlStyle(.automatic)
-                .policyDestination(for: .privacyPolicy, url: paywall.configuration.privacyPolicyURL, title: "webView.privacyPolicy.title")
-                .policyDestination(for: .termsOfService, url: paywall.configuration.termsOfServiceURL, title: "webView.termsOfUse.title")
+                .policyDestination(for: .privacyPolicy, url: paywall.configuration.privacyPolicyURL, title: paywall.texts.privacyPolicyTitle)
+                .policyDestination(for: .termsOfService, url: paywall.configuration.termsOfServiceURL, title: paywall.texts.termsOfServiceTitle)
                 .onInAppPurchaseStart { _ in
                     paywall.report(.purchaseStarted(source: request.source))
                 }
                 .onInAppPurchaseCompletion { _, result in
                     handlePurchaseCompletion(result)
                 }
-                .alert(Text(error: "error.paywall.purchaseFailed.title"), isPresented: $showsPurchaseFailedAlert) {
+                .alert(Text(paywall.texts.purchaseFailedTitle), isPresented: $showsPurchaseFailedAlert) {
                 } message: {
-                    Text(error: "error.paywall.purchaseFailed.message")
+                    Text(paywall.texts.purchaseFailedMessage)
                 }
                 .onChange(of: paywall.hasSubscription) { _, isActive in
                     // Covers purchase, restore and renewal alike: a restore never reaches
@@ -63,7 +63,7 @@ struct PaywallView: View {
 #if os(iOS)
                 .toolbarBackground(hasFeatures ? .hidden : .automatic, for: .navigationBar)
 #endif
-                .sheetDismissButton()
+                .sheetDismissButton(paywall.texts.dismiss)
         }
         // Measured out here rather than inside: the sheet's height is the same whatever
         // SubscriptionStoreView does with its own layout, and it does not shift when the
@@ -151,45 +151,45 @@ private extension View {
 // scheme; re-add it there if a preview shows "Subscription Unavailable" instead of the buttons.
 #Preview("Photos (1)") {
     PaywallView(request: PaywallRequest(source: "preview"))
-        .environment(PaywallService(configuration: .preview, features: .previewFeatures))
+        .environment(PaywallService(configuration: .preview, texts: .preview, features: .previewFeatures))
 }
 
 #Preview("Text (1)") {
     PaywallView(request: PaywallRequest(source: "preview"))
-        .environment(PaywallService(configuration: .preview, features: .previewFeaturesWithoutPhotos))
+        .environment(PaywallService(configuration: .preview, texts: .preview, features: .previewFeaturesWithoutPhotos))
 }
 
 // All four page shapes in one set, so the jump between the two layouts is visible while swiping.
 #Preview("Mixed (1)") {
     PaywallView(request: PaywallRequest(source: "preview"))
-        .environment(PaywallService(configuration: .preview, features: .previewFeaturesMixed))
+        .environment(PaywallService(configuration: .preview, texts: .preview, features: .previewFeaturesMixed))
 }
 
 // The same paywall against a group with two tiers. Both groups are in `ButchKitPreview.storekit`,
 // so these load alongside the three above with nothing to switch.
 #Preview("Photos (2)") {
     PaywallView(request: PaywallRequest(source: "preview"))
-        .environment(PaywallService(configuration: .previewTiers, features: .previewFeatures))
+        .environment(PaywallService(configuration: .previewTiers, texts: .preview, features: .previewFeatures))
 }
 
 #Preview("Text (2)") {
     PaywallView(request: PaywallRequest(source: "preview"))
-        .environment(PaywallService(configuration: .previewTiers, features: .previewFeaturesWithoutPhotos))
+        .environment(PaywallService(configuration: .previewTiers, texts: .preview, features: .previewFeaturesWithoutPhotos))
 }
 
 #Preview("Mixed (2)") {
     PaywallView(request: PaywallRequest(source: "preview"))
-        .environment(PaywallService(configuration: .previewTiers, features: .previewFeaturesMixed))
+        .environment(PaywallService(configuration: .previewTiers, texts: .preview, features: .previewFeaturesMixed))
 }
 
 // No pages at all: the app never passed any, or passed an empty array. StoreKit takes the whole
 // sheet, and the paywall follows the device appearance rather than forcing its dark ground.
 #Preview("Empty (1)") {
     PaywallView(request: PaywallRequest(source: "preview"))
-        .environment(PaywallService(configuration: .preview))
+        .environment(PaywallService(configuration: .preview, texts: .preview))
 }
 
 #Preview("Empty (2)") {
     PaywallView(request: PaywallRequest(source: "preview"))
-        .environment(PaywallService(configuration: .previewTiers))
+        .environment(PaywallService(configuration: .previewTiers, texts: .preview))
 }

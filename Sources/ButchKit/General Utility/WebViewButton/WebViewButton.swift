@@ -7,26 +7,27 @@
 
 /**
  A button that presents web content in a sheet using StaticWebView.
- 
+
  ## Features
  - Displays web content in a modal sheet
  - Automatically handles language detection via Accept-Language headers
  - Auto-adds https:// prefix to URLs without scheme
  - Optional icon support with SF Symbols
  - Configurable JavaScript, language, and cache settings
- 
+
  ## Usage
  ```swift
  // Simple usage (auto-adds https://)
- WebViewButton("Privacy", url: "apple.com/privacy")
- 
+ WebViewButton("button.privacy", url: "apple.com/privacy", dismissTitle: "button.dismissSheet")
+
  // With icon
- WebViewButton("Support", systemImage: "questionmark.circle", url: "example.com/support")
- 
+ WebViewButton("button.support", systemImage: "questionmark.circle", url: "example.com/support", dismissTitle: "button.dismissSheet")
+
  // With custom settings
  WebViewButton(
- "Help",
+ "button.help",
  url: "example.com/help",
+ dismissTitle: "button.dismissSheet",
  useAppLanguage: true,
  allowsJavaScript: true
  )
@@ -40,17 +41,20 @@ public struct WebViewButton: View {
     let title: LocalizedStringKey
     let systemImage: String?
     let url: String
+    let dismissTitle: LocalizedStringKey
     let useAppLanguage: Bool
     let allowsJavaScript: Bool
     let cachePolicy: URLRequest.CachePolicy
-    
+
     @State private var showingWebView = false
-    
+
     // MARK: - Initializer
+    /// - Parameter dismissTitle: The name of the sheet's close button, from the app's catalog.
     public init(
         _ title: LocalizedStringKey,
         systemImage: String? = nil,
         url: String,
+        dismissTitle: LocalizedStringKey,
         useAppLanguage: Bool = false,
         allowsJavaScript: Bool = false,
         cachePolicy: URLRequest.CachePolicy = .reloadIgnoringLocalAndRemoteCacheData
@@ -58,11 +62,12 @@ public struct WebViewButton: View {
         self.title = title
         self.systemImage = systemImage
         self.url = url
+        self.dismissTitle = dismissTitle
         self.useAppLanguage = useAppLanguage
         self.allowsJavaScript = allowsJavaScript
         self.cachePolicy = cachePolicy
     }
-    
+
     // MARK: - View
     public var body: some View {
         Button {
@@ -83,7 +88,7 @@ public struct WebViewButton: View {
                     allowsJavaScript: allowsJavaScript,
                     cachePolicy: cachePolicy
                 )
-                .sheetDismissButton()
+                .sheetDismissButton(dismissTitle)
             }
         }
     }
@@ -95,19 +100,22 @@ public struct WebViewButton: View {
     Form {
         WebViewButton(
             "Imprint",
-            url: "apple.com"
+            url: "apple.com",
+            dismissTitle: "Close"
         )
-        
+
         WebViewButton(
             "Privacy",
             systemImage: "lock.shield",
-            url: "apple.com/privacy"
+            url: "apple.com/privacy",
+            dismissTitle: "Close"
         )
-        
+
         WebViewButton(
             "Support (with JS)",
             systemImage: "questionmark.circle",
             url: "apple.com/support",
+            dismissTitle: "Close",
             allowsJavaScript: true
         )
     }

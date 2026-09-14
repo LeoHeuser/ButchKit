@@ -20,6 +20,29 @@ extension PaywallConfiguration {
     static let previewTiers = PaywallConfiguration(subscriptionGroupID: "B07C4A21")
 }
 
+extension PaywallTexts {
+    /// Plain English in place of keys: a package has no catalog, so a preview shows whatever it
+    /// is given. Computed for the same reason as the pages below: the closures are not
+    /// `Sendable`, which a static constant would require.
+    static var preview: PaywallTexts {
+        PaywallTexts(
+            dismiss: "Close",
+            privacyPolicyTitle: "Privacy Policy",
+            termsOfServiceTitle: "Terms of Service",
+            purchaseFailedTitle: "The purchase didn't go through",
+            purchaseFailedMessage: "Nothing was charged. Try again in a moment.",
+            offer: "See subscription plans",
+            offerHint: "Opens the subscription offer.",
+            fallbackPlanName: "Plus",
+            manage: "Manage",
+            manageHint: "Opens Apple's subscription management.",
+            renews: { Text("Renews on \($0, format: .dateTime.day().month().year())") },
+            ends: { Text("Ends on \($0, format: .dateTime.day().month().year())") },
+            billingIssue: "Payment didn't go through."
+        )
+    }
+}
+
 extension ImageResource {
     /// The placeholders in `PaywallPreviewAssets.xcassets`, standing in for an app's own photos.
     /// Only Xcode compiles the catalog, so these resolve in previews and nowhere else.

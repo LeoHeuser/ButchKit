@@ -11,7 +11,7 @@ import SwiftUI
 /// photo behind both.
 ///
 /// Declare the pages once, next to the configuration, and pass them to
-/// `View.paywallEnvironment(_:features:)`. The paywall shows them as swipeable pages that
+/// `View.paywallEnvironment(_:texts:features:)`. The paywall shows them as swipeable pages that
 /// advance on their own.
 ///
 /// ```swift
