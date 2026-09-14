@@ -1,5 +1,5 @@
 //
-//  PackageItem.swift
+//  ExternalPackageRow.swift
 //  ButchKit
 //
 //  Created by Leo Heuser on 02.09.26.
@@ -7,14 +7,14 @@
 
 import SwiftUI
 
-/// One package row in ``ExternalPackagesView``: the package, its license, what the app uses it
+/// One package's row in ``ExternalPackagesView``: the package, its license, what the app uses it
 /// for, and the way to its source.
 ///
 /// The whole row is the link rather than a word underneath it. There is one thing to do with an
-/// acknowledgment -- go and read the package -- and a row that does it is a larger target than a
-/// line of text, marked by an arrow at its trailing end.
-struct PackageItem: View {
-    let package: PackageDescription
+/// entry in this list -- go and read the package -- and a row that does it is a larger target
+/// than a line of text, marked by an arrow at its trailing end.
+struct ExternalPackageRow: View {
+    let package: ExternalPackage
     let texts: ExternalPackagesTexts
 
     /// Between the name and the purpose. Wider than the gap inside the purpose, so the row reads
@@ -37,7 +37,7 @@ struct PackageItem: View {
             HStack(alignment: .firstTextBaseline) {
                 VStack(alignment: .leading, spacing: Self.groupSpacing) {
                     // A package's name and its license identifier are what they are, not
-                    // language. The description is already resolved by `PackageDescription`.
+                    // language. The description is already resolved by `ExternalPackage`.
                     //
                     // The license shares the name's line rather than taking one of its own: a
                     // short identifier does not earn a line, and at the name's size in regular
@@ -81,9 +81,9 @@ struct PackageItem: View {
 #if DEBUG
 #Preview {
     List {
-        PackageItem(package: .previewRequired, texts: .preview)
+        ExternalPackageRow(package: .previewRequired, texts: .preview)
 
-        PackageItem(package: .previewLong, texts: .preview)
+        ExternalPackageRow(package: .previewLong, texts: .preview)
     }
 }
 #endif

@@ -7,18 +7,17 @@
 
 import SwiftUI
 
-/// The acknowledgments for every external package an app depends on, and the switch for each one
-/// the user may turn off.
+/// Every external package an app depends on, and the switch for each one the user may turn off.
 ///
 /// ```swift
 /// NavigationStack {
-///     ExternalPackagesView(packages: PackageDescription.all, texts: externalPackagesTexts)
+///     ExternalPackagesView(packages: ExternalPackage.all, texts: externalPackagesTexts)
 /// }
 /// ```
 ///
 /// Meant to be opened from wherever it helps: the settings, a privacy screen, an onboarding page.
 /// The switches read the same everywhere, because the decision is stored under the package's
-/// ``PackageID`` rather than held by the view.
+/// ``ExternalPackage/ID`` rather than held by the view.
 ///
 /// One section per package, so an optional package's switch sits with the package it belongs to
 /// instead of reading as a list item of its own. The package row stays one link as a whole: a
@@ -38,10 +37,10 @@ public struct ExternalPackagesView: View {
     public static let windowSize = CGSize(width: 480, height: 320)
 #endif
 
-    private let packages: [PackageDescription]
+    private let packages: [ExternalPackage]
     private let texts: ExternalPackagesTexts
 
-    public init(packages: [PackageDescription], texts: ExternalPackagesTexts) {
+    public init(packages: [ExternalPackage], texts: ExternalPackagesTexts) {
         self.packages = packages
         self.texts = texts
     }
@@ -49,10 +48,10 @@ public struct ExternalPackagesView: View {
     public var body: some View {
         List(packages) { package in
             Section {
-                PackageItem(package: package, texts: texts)
+                ExternalPackageRow(package: package, texts: texts)
 
                 if package.isOptional {
-                    PackageToggle(package: package, texts: texts)
+                    ExternalPackageToggle(package: package, texts: texts)
                 }
             }
         }
@@ -67,21 +66,21 @@ public struct ExternalPackagesView: View {
 }
 
 /// The switch under an optional package.
-private struct PackageToggle: View {
-    let package: PackageDescription
+private struct ExternalPackageToggle: View {
+    let package: ExternalPackage
     let texts: ExternalPackagesTexts
 
-    /// Stored under the package's id, which is what ``PackageID/isEnabled`` reads.
+    /// Stored under the package's id, which is what ``ExternalPackage/ID/isEnabled`` reads.
     @AppStorage private var isEnabled: Bool
 
-    init(package: PackageDescription, texts: ExternalPackagesTexts) {
+    init(package: ExternalPackage, texts: ExternalPackagesTexts) {
         self.package = package
         self.texts = texts
         // The key, default and store the gate reads, so the switch always shows what it answers.
         _isEnabled = AppStorage(
-            wrappedValue: PackageID.enabledByDefault,
+            wrappedValue: ExternalPackage.ID.enabledByDefault,
             package.id.defaultsKey,
-            store: PackageID.store
+            store: ExternalPackage.ID.store
         )
     }
 
