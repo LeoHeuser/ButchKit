@@ -68,7 +68,7 @@ Every type is documented in code. This is the map.
 
 - `View.paywallEnvironment(_:texts:features:)` — root-level integration. Creates the service, injects it and attaches the paywall sheet.
 - `PaywallService` — `hasAccess` and `entitlement`, fed by StoreKit 2, plus `present(source:)` and `require(source:_:)` to show the paywall from anywhere.
-- `PaywallConfiguration` — the subscription group, the optional lifetime products, policy URLs and the marketing pages' height.
+- `PaywallConfiguration` — the subscription group and the lifetime products, at least one of the two, policy URLs and the marketing pages' height.
 - `PaywallEntitlement` — `none`, `subscription` or `lifetime`.
 - `PaywallTexts` — every word the paywall and the settings row show, handed in by the app.
 - `PayWallFeature` — one marketing page: title, description, image.

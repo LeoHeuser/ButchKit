@@ -7,29 +7,6 @@
 
 import SwiftUI
 
-extension PaywallConfiguration {
-    /// One monthly subscription, the simplest paywall there is.
-    ///
-    /// Both groups live in the single `ButchKitPreview.storekit` next to this file. Only one
-    /// StoreKit configuration is ever active, so two files would mean only half the previews
-    /// could load; two groups in one file means every preview works at the same time.
-    static let preview = PaywallConfiguration(subscriptionGroupID: "B07C4A12")
-
-    /// Monthly and yearly in one group, the yearly with a free week. Shows how the paywall lays
-    /// out more than one tier.
-    static let previewTiers = PaywallConfiguration(subscriptionGroupID: "B07C4A21")
-
-    /// The two tiers plus two one-time purchases, so the lifetime segment shows a list rather
-    /// than a single product.
-    static let previewLifetime = PaywallConfiguration(
-        subscriptionGroupID: "B07C4A21",
-        lifetimeProductIDs: [
-            "design.heuser.butchkit.preview.lifetime",
-            "design.heuser.butchkit.preview.lifetimeSupporter"
-        ]
-    )
-}
-
 extension PaywallTexts {
     /// Plain English in place of keys: a package has no catalog, so a preview shows whatever it
     /// is given. Computed for the same reason as the pages below: the closures are not

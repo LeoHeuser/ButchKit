@@ -38,12 +38,16 @@ struct PaywallView: View {
     /// under the status bar on a dark ground. A `featureAreaHeight` of 0 counts as no pages.
     private var hasFeatures: Bool { !paywall.features.isEmpty && paywall.configuration.featureAreaHeight > 0 }
 
-    /// Whether the app sells lifetime products next to its plans, which puts the segmented
-    /// control under the pages.
+    /// Whether the app sells lifetime products.
     private var offersOneTime: Bool { !paywall.configuration.lifetimeProductIDs.isEmpty }
 
+    /// Whether the app sells lifetime products next to its plans, which puts the segmented control
+    /// under the pages. Without a group it sells lifetime products alone.
+    private var offersBoth: Bool { paywall.configuration.subscriptionGroupID != nil && offersOneTime }
+
     /// Whether the paywall draws its own header: pages, the segmented control, or both. Without
-    /// either it hands the whole sheet to StoreKit, see ``storeView``.
+    /// either it hands the whole sheet to StoreKit, see ``storeView``. An app without a group
+    /// always sells lifetime products, so it never ends up there.
     private var usesMarketingContent: Bool { hasFeatures || offersOneTime }
     
     var body: some View {
@@ -155,7 +159,7 @@ struct PaywallView: View {
     /// purchases below them do. Without either, the init of `SubscriptionStoreView` that has no
     /// content closure leaves StoreKit its own header, which carries the app icon, the app name
     /// and the group's App Store Connect description. The segmented control alone takes that
-    /// header away: with lifetime products, supply at least one page.
+    /// header away: with lifetime products next to plans, supply at least one page.
     @ViewBuilder
     private var storeView: some View {
         if usesMarketingContent {
@@ -166,19 +170,19 @@ struct PaywallView: View {
                     // A cross-fade between the two offers rather than a hard swap.
                     .animation(.smooth, value: offer)
             }
-        } else {
-            SubscriptionStoreView(groupID: paywall.configuration.subscriptionGroupID, visibleRelationships: .all)
+        } else if let groupID = paywall.configuration.subscriptionGroupID {
+            SubscriptionStoreView(groupID: groupID, visibleRelationships: .all)
         }
     }
 
-    /// The pages and, with lifetime products, the segmented control under them. Never scrolls, so
+    /// The pages and, with lifetime products next to plans, the segmented control under them. Never scrolls, so
     /// both keep their place whichever offer is selected.
     private var header: some View {
         VStack(spacing: 0) {
             if hasFeatures {
                 PaywallMarketingContent(features: paywall.features, height: paywallHeight * paywall.configuration.featureAreaHeight)
             }
-            if offersOneTime {
+            if offersBoth {
                 // Each segment reads its own title to VoiceOver, so the picker needs no label.
                 Picker(selection: $offer) {
                     Text(paywall.texts.subscriptionTab).tag(Offer.subscription)
@@ -196,17 +200,16 @@ struct PaywallView: View {
     }
 
     /// What the selected offer sells, under the fixed header. Scrolls on its own when it does not
-    /// fit the rest of the sheet.
+    /// fit the rest of the sheet. Without a group there is nothing to select: the lifetime products.
     @ViewBuilder
     private var purchaseArea: some View {
-        switch offer {
-        case .subscription:
+        if let groupID = paywall.configuration.subscriptionGroupID, offer == .subscription {
             // An empty marketing slot: the header above already does that job, outside StoreKit.
-            SubscriptionStoreView(groupID: paywall.configuration.subscriptionGroupID, visibleRelationships: .all) {
+            SubscriptionStoreView(groupID: groupID, visibleRelationships: .all) {
                 EmptyView()
             }
             .controlsUnderHeader()
-        case .oneTime:
+        } else {
             PaywallOneTimeStore()
         }
     }
@@ -341,67 +344,47 @@ private extension View {
     }
 }
 
-// The subscription buttons load from `ButchKitPreview.storekit`, which has to be selected under
+// The products load from `ButchKitPreview.storekit`, which has to be selected under
 // Product > Scheme > Edit Scheme > Run > Options. Xcode drops that reference when it rewrites the
 // scheme; re-add it there if a preview shows "Subscription Unavailable" instead of the buttons.
-#Preview("Photos (1)") {
-    PaywallView(request: PaywallRequest(source: "preview"))
-        .environment(PaywallService(configuration: .preview, texts: .preview, features: .previewFeatures))
+// Every setup is a case of `PaywallPreviewStore`; switch a preview by changing its case.
+#Preview("1 Subscription") {
+    PaywallView.preview(.oneSubscription)
 }
 
-#Preview("Text (1)") {
-    PaywallView(request: PaywallRequest(source: "preview"))
-        .environment(PaywallService(configuration: .preview, texts: .preview, features: .previewFeaturesWithoutPhotos))
+#Preview("3 Subscriptions") {
+    PaywallView.preview(.threeSubscriptions)
+}
+
+// Without a group there is no segmented control: the lifetime products are the whole offer.
+#Preview("1 One-Time") {
+    PaywallView.preview(.oneOneTimePurchase)
+}
+
+#Preview("3 One-Time") {
+    PaywallView.preview(.threeOneTimePurchases)
+}
+
+#Preview("Subscriptions + One-Time") {
+    PaywallView.preview(.subscriptionsAndOneTimePurchases)
+}
+
+#Preview("Text") {
+    PaywallView.preview(.subscriptionsAndOneTimePurchases, features: .previewFeaturesWithoutPhotos)
 }
 
 // All four page shapes in one set, so the jump between the two layouts is visible while swiping.
-#Preview("Mixed (1)") {
-    PaywallView(request: PaywallRequest(source: "preview"))
-        .environment(PaywallService(configuration: .preview, texts: .preview, features: .previewFeaturesMixed))
-}
-
-// The same paywall against a group with two tiers. Both groups are in `ButchKitPreview.storekit`,
-// so these load alongside the three above with nothing to switch.
-#Preview("Photos (2)") {
-    PaywallView(request: PaywallRequest(source: "preview"))
-        .environment(PaywallService(configuration: .previewTiers, texts: .preview, features: .previewFeatures))
-}
-
-#Preview("Text (2)") {
-    PaywallView(request: PaywallRequest(source: "preview"))
-        .environment(PaywallService(configuration: .previewTiers, texts: .preview, features: .previewFeaturesWithoutPhotos))
-}
-
-#Preview("Mixed (2)") {
-    PaywallView(request: PaywallRequest(source: "preview"))
-        .environment(PaywallService(configuration: .previewTiers, texts: .preview, features: .previewFeaturesMixed))
-}
-
-// Two tiers plus two lifetime products, with and without pages: the segmented control sits under
-// the pages. Without pages it is all the marketing slot holds, so Apple's header does not appear.
-#Preview("Photos + Lifetime") {
-    PaywallView(request: PaywallRequest(source: "preview"))
-        .environment(PaywallService(configuration: .previewLifetime, texts: .preview, features: .previewFeatures))
-}
-
-#Preview("Text + Lifetime") {
-    PaywallView(request: PaywallRequest(source: "preview"))
-        .environment(PaywallService(configuration: .previewLifetime, texts: .preview, features: .previewFeaturesWithoutPhotos))
-}
-
-#Preview("Empty + Lifetime") {
-    PaywallView(request: PaywallRequest(source: "preview"))
-        .environment(PaywallService(configuration: .previewLifetime, texts: .preview))
+#Preview("Mixed") {
+    PaywallView.preview(.subscriptionsAndOneTimePurchases, features: .previewFeaturesMixed)
 }
 
 // No pages at all: the app never passed any, or passed an empty array. StoreKit takes the whole
 // sheet, and the paywall follows the device appearance rather than forcing its dark ground.
-#Preview("Empty (1)") {
-    PaywallView(request: PaywallRequest(source: "preview"))
-        .environment(PaywallService(configuration: .preview, texts: .preview))
+#Preview("Empty") {
+    PaywallView.preview(.oneSubscription, features: [])
 }
 
-#Preview("Empty (2)") {
-    PaywallView(request: PaywallRequest(source: "preview"))
-        .environment(PaywallService(configuration: .previewTiers, texts: .preview))
+// No pages and no group: the lifetime products under the toolbar, with no StoreKit header above.
+#Preview("Empty + One-Time") {
+    PaywallView.preview(.threeOneTimePurchases, features: [])
 }

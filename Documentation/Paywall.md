@@ -4,7 +4,7 @@ How to sell a subscription with ButchKit: one configuration, one modifier, one q
 
 ## What it is
 
-Every app we ship earns its money through one auto-renewable subscription group, and some apps sell a lifetime unlock next to it, as one or more one-time purchases. The paywall module turns that into a fixed system so an app never writes StoreKit code again:
+Every app we ship earns its money through one auto-renewable subscription group, one or more lifetime unlocks sold as one-time purchases, or both. The paywall module turns that into a fixed system so an app never writes StoreKit code again:
 
 1. **One truth.** `PaywallService.hasAccess` is the only place that knows whether the user pays. Every gate in the app asks it, nothing else. `entitlement` says whether it is a subscription or the lifetime product; only the settings row needs that.
 2. **One integration.** `.paywallEnvironment(_:texts:features:)` on the root view. It creates the service, injects it, runs the first entitlement check and owns the paywall sheet.
@@ -16,7 +16,7 @@ The paywall is not a place for experiments. If the layout has to change, it chan
 
 | Part | Meaning | Who decides |
 |---|---|---|
-| **`PaywallConfiguration`** | The subscription group, the optional lifetime products, the two policy URLs and how tall the marketing pages are | You, once per app |
+| **`PaywallConfiguration`** | The subscription group and the lifetime products, at least one of the two, the two policy URLs and how tall the marketing pages are | You, once per app |
 | **`PayWallFeature`** | One marketing page: a title, plus an optional description and photo | You, once per app, as many as you like, or none |
 | **`PaywallTexts`** | Every word the paywall and the settings row show | You, once per app |
 | **`PaywallService`** | `hasAccess` and `entitlement`, plus `present` and `require` to show the paywall | ButchKit, created by the root modifier |
@@ -28,6 +28,14 @@ The paywall is not a place for experiments. If the layout has to change, it chan
 Entitlement is decided per **subscription group**, not per product. Every tier in the group unlocks the app. Adding a monthly tier next to the yearly one is an App Store Connect change, not a code change.
 
 The one exception is the **lifetime products**: non-consumables that each unlock the app for good. They have no group, so they are the only products named in the configuration. An app that sells any passes `lifetimeProductIDs`, in the order the paywall lists them; every other app leaves it out and nothing about it changes. Several lifetime products all grant the same thing, the whole app: a `Lifetime` next to a pricier `Lifetime Supporter`, say. A product that unlocks only part of the app is not supported.
+
+An app that sells nothing but lifetime products leaves out the group:
+
+```swift
+let paywallConfig = PaywallConfiguration(lifetimeProductIDs: ["design.heuser.App.full_version"])
+```
+
+The paywall then shows the one-time purchases alone, and the settings row never offers subscription management. A configuration with neither a group nor a lifetime product sells nothing and stops a debug build.
 
 ## Setup
 
@@ -97,7 +105,7 @@ RootView()
 
 Then the paywall shows Apple's own storefront instead: app icon, app name and the subscription group's description from App Store Connect, over the same subscription controls. Nothing to write and nothing to design, and it sells from the first build. An empty array does the same thing, so a `features` list that ends up empty is a valid state rather than a broken paywall.
 
-An app with lifetime products supplies at least one page. The segmented control lives in the same slot as the pages, and once that slot is in use StoreKit no longer draws its own header, so the control alone would sit under an empty top.
+An app with lifetime products next to a subscription supplies at least one page. The segmented control lives in the same slot as the pages, and once that slot is in use StoreKit no longer draws its own header, so the control alone would sit under an empty top.
 
 Then one modifier on the root view, above everything that might gate a feature or show the paywall:
 
@@ -235,10 +243,10 @@ The paywall is fixed. For every app:
 
 - Photo pages from `paywallFeatures`, swipeable, advancing every five seconds, pausing for fifteen after a swipe. Page dots are always visible. The pages take a fixed share of the sheet's height at the top, `featureAreaHeight` (62 % unless the app sets it), and never scroll away; everything below them scrolls on its own when it does not fit. On a short sheet (iPhone SE, landscape) that can put the Subscribe button one scroll down.
 - Title in `.title.bold`, description in `.headline`. On a page with a photo the text sits at the bottom, over a gradient that fades the photo out; on a page without one it centres.
-- With lifetime products, a segmented control under the pages: the subscription first and selected, the one-time purchases second. Switching changes only what sits below it; the pages and the control keep their place. The one-time side lists one card per product across the full width, Apple's `ProductView` in a ButchKit style: name and description from App Store Connect, and a Buy button carrying the price. `SubscriptionStoreView` shows nothing but subscriptions, which is why the one-time purchases need a side of their own. Without lifetime products there is no control, and the paywall is the subscription side alone.
+- With lifetime products, a segmented control under the pages: the subscription first and selected, the one-time purchases second. Switching changes only what sits below it; the pages and the control keep their place. The one-time side lists one card per product across the full width, Apple's `ProductView` in a ButchKit style: name and description from App Store Connect, and a Buy button carrying the price. `SubscriptionStoreView` shows nothing but subscriptions, which is why the one-time purchases need a side of their own. Without lifetime products there is no control, and the paywall is the subscription side alone. Without a group there is no control either, and the paywall is the one-time side alone; with no pages that list sits right under the toolbar.
 - Apple's subscription controls below, as Apple's picker: one card per plan, one Subscribe button under them, starting right under the pages. Adding a tier in App Store Connect needs no code change. Before iOS 18 and macOS 15 StoreKit picks the shape itself, a single Subscribe button for a group with one plan. Introductory offers are shown by StoreKit either way.
 - One restore button for everything, subscriptions and lifetime products alike, as text at the top right opposite the close button. With pages it floats over the photo in the same style as the close button; without pages, and on the Mac, both sit in the toolbar. Apple's own restore button is hidden: it only syncs, without reading the entitlements again or saying how it went. While ours asks the App Store it shows a spinner and cannot be tapped again; then one of three alerts says how it went: the purchase is back, there is nothing to restore, or the restore failed. Backing out of the App Store sign-in shows nothing. After a restore the sheet stays open until its alert is closed, and OK after a success closes the paywall.
-- Privacy Policy plus Terms of Service when both URLs are configured. Policies open in `GatedWebView` inside the sheet.
+- Privacy Policy plus Terms of Service when both URLs are configured. Policies open in `GatedWebView` inside the sheet. StoreKit draws them with the subscription controls, so a paywall without a group shows neither; link the policies from the app's settings instead.
 - A round close button floating over the photo, top left, with no navigation bar behind it: a bar would inset the pages and band the photos off at the top. Dark appearance regardless of the device setting.
 - On success the sheet closes on its own, a subscriber buying a lifetime product included; a restore waits for its alert first. On failure, a purchase that fails verification included, a native alert.
 
@@ -359,7 +367,7 @@ Product names and prices come from App Store Connect, localized per storefront. 
 
 Deliberately, to stay one system:
 
-- **No consumables, and no partial unlocks.** One auto-renewable group, plus any number of non-consumables that each unlock everything. Anything sold by the piece, or a product that unlocks only part of the app, is a different business, not a paywall.
+- **No consumables, and no partial unlocks.** At most one auto-renewable group, plus any number of non-consumables that each unlock everything. Anything sold by the piece, or a product that unlocks only part of the app, is a different business, not a paywall.
 - **No custom grace period.** Billing retry and grace belong to App Store Connect (Subscription Group settings), not to the app.
 - **No product loading for the app.** The paywall and the settings row fetch what they show themselves. An app that needs a product anywhere else calls `Product.products(for:)` itself.
 - **No promo, win-back or offer codes.** Add them in App Store Connect; StoreKit surfaces the eligible ones in the paywall on its own.
@@ -382,8 +390,8 @@ A compact checklist for anyone, human or AI, touching the paywall in a ButchKit 
 - Hide what would trap a free user; paywall only what the subscription sells.
 - The free tier is a rule about scope, never a counter. Never store a use, day or document count.
 - Trials come from Apple's introductory offer only. Never build one out of `UserDefaults`.
-- Configure by subscription group, never by product identifier. The only products ever named are the lifetime unlocks. Debug and Release group IDs differ.
-- An app with lifetime products supplies at least one marketing page.
+- Configure by subscription group, never by product identifier. The only products ever named are the lifetime unlocks. Debug and Release group IDs differ. An app that sells only lifetime unlocks leaves the group out.
+- An app with lifetime products next to a subscription supplies at least one marketing page.
 - Marketing pages are `PayWallFeature` values, never custom views. The layout is fixed in ButchKit.
 - Pages are optional. With none, Apple's storefront takes over; never build a placeholder page to fill the gap.
 - Every paywall string is written in the app's code, in `PaywallTexts` and the feature pages, so Xcode extracts it into the app's catalogs. Never add a key to a catalog by hand.

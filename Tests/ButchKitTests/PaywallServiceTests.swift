@@ -55,6 +55,17 @@ struct PaywallConfigurationTests {
         #expect(config.entitlement(productID: "other", subscriptionGroupID: "2") == .none)
         #expect(config.entitlement(productID: "other", subscriptionGroupID: nil) == .none)
     }
+
+    /// Without a group of its own, a product without a group must not count as a member of it:
+    /// `nil` matching `nil` would unlock the app for any unknown non-consumable.
+    @Test("Sells lifetime products without a subscription")
+    func lifetimeOnly() {
+        let config = PaywallConfiguration(lifetimeProductIDs: ["lifetime"])
+        #expect(config.subscriptionGroupID == nil)
+        #expect(config.entitlement(productID: "lifetime", subscriptionGroupID: nil) == .lifetime)
+        #expect(config.entitlement(productID: "other", subscriptionGroupID: nil) == .none)
+        #expect(config.entitlement(productID: "yearly", subscriptionGroupID: "1") == .none)
+    }
 }
 
 @Suite("PaywallEntitlement")

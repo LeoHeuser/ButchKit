@@ -76,6 +76,6 @@ private struct PaywallProductStyle: ProductViewStyle {
 // nothing but a spinner.
 #Preview {
     PaywallOneTimeStore()
-        .environment(PaywallService(configuration: .previewLifetime, texts: .preview))
+        .environment(PaywallService.preview(.threeOneTimePurchases))
         .paywallPreviewGround()
 }

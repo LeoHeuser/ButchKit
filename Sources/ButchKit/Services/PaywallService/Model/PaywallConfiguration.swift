@@ -27,10 +27,15 @@ import Foundation
 ///
 /// The only products that are named are the optional lifetime purchases, non-consumables that
 /// each unlock the app for good. An app that sells any passes their identifiers; every other app
-/// leaves them out.
+/// leaves them out. An app that sells nothing but those leaves out the group instead:
+///
+/// ```swift
+/// let paywallConfig = PaywallConfiguration(lifetimeProductIDs: ["design.heuser.App.full_version"])
+/// ```
 public struct PaywallConfiguration: Sendable, Equatable {
-    /// The App Store Connect subscription group whose members unlock the app.
-    public let subscriptionGroupID: String
+    /// The App Store Connect subscription group whose members unlock the app. `nil` for an app
+    /// that sells only lifetime products; the paywall then shows those alone.
+    public let subscriptionGroupID: String?
     /// The non-consumables that each unlock the app once and for all, in the order the paywall
     /// lists them. Empty for an app that sells none; with any, the paywall offers them on a
     /// segment of their own next to the subscription plans.
@@ -45,12 +50,13 @@ public struct PaywallConfiguration: Sendable, Equatable {
     public let featureAreaHeight: Double
 
     public init(
-        subscriptionGroupID: String,
+        subscriptionGroupID: String? = nil,
         lifetimeProductIDs: [String] = [],
         privacyPolicyURL: String? = nil,
         termsOfServiceURL: String? = nil,
         featureAreaHeight: Double = 0.62
     ) {
+        assert(subscriptionGroupID != nil || !lifetimeProductIDs.isEmpty, "A paywall needs a subscription group, lifetime products, or both")
         self.featureAreaHeight = min(max(featureAreaHeight, 0), 1)
         self.subscriptionGroupID = subscriptionGroupID
         self.lifetimeProductIDs = lifetimeProductIDs
@@ -70,7 +76,8 @@ public struct PaywallConfiguration: Sendable, Equatable {
         if lifetimeProductIDs.contains(productID) {
             return .lifetime
         }
-        if subscriptionGroupID == self.subscriptionGroupID {
+        // Checked for `nil` first: without a group of its own, a product without one is no member.
+        if let ownGroupID = self.subscriptionGroupID, subscriptionGroupID == ownGroupID {
             return .subscription
         }
         return .none

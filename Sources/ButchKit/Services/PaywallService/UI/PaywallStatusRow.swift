@@ -80,7 +80,7 @@ private struct SubscribedRow: View {
         }
         // Runs again on every change StoreKit reports, so a renewal, a cancellation or a plan
         // change shows here without the settings having to be reopened.
-        .subscriptionStatusTask(for: paywall.configuration.subscriptionGroupID) { state in
+        .subscriptionStatus(for: paywall.configuration.subscriptionGroupID) { state in
             // Loading and failure keep what the row already shows: the detail is decoration,
             // and a line that blinks away on a network hiccup would read as a lapsed plan.
             guard case .success(let statuses) = state else { return }
@@ -121,7 +121,7 @@ private struct LifetimeRow: View {
         }
         .task(findHeldProduct)
         // Follows the subscription live, so the button goes away once the user has cancelled.
-        .subscriptionStatusTask(for: paywall.configuration.subscriptionGroupID) { state in
+        .subscriptionStatus(for: paywall.configuration.subscriptionGroupID) { state in
             guard case .success(let statuses) = state else { return }
             subscriptionRenews = HeldPlan.current(in: statuses.compactMap(HeldPlan.init))?.willAutoRenew == true
         }
@@ -233,25 +233,44 @@ private struct UnsubscribedRow: View {
 private extension View {
     /// `manageSubscriptionsSheet` is iOS only. Isolated into a `@ViewBuilder` because a `#if`
     /// around the modifier at the call site would fork the row's type between the platforms.
+    /// Without a group the app sells no subscription, so there is nothing to manage.
     @ViewBuilder
-    func manageSubscription(isPresented: Binding<Bool>, subscriptionGroupID: String) -> some View {
+    func manageSubscription(isPresented: Binding<Bool>, subscriptionGroupID: String?) -> some View {
 #if os(iOS)
-        // With the group, the sheet opens on this app's plan rather than on a list the user
-        // has to find it in.
-        manageSubscriptionsSheet(isPresented: isPresented, subscriptionGroupID: subscriptionGroupID)
+        if let subscriptionGroupID {
+            // With the group, the sheet opens on this app's plan rather than on a list the user
+            // has to find it in.
+            manageSubscriptionsSheet(isPresented: isPresented, subscriptionGroupID: subscriptionGroupID)
+        } else {
+            self
+        }
 #else
         self
 #endif
     }
+
+    /// `subscriptionStatusTask` for the configured group, and nothing without one: an app that
+    /// sells only lifetime products has no status to follow.
+    @ViewBuilder
+    func subscriptionStatus(
+        for subscriptionGroupID: String?,
+        action: @escaping @MainActor @Sendable (EntitlementTaskState<[Product.SubscriptionInfo.Status]>) async -> Void
+    ) -> some View {
+        if let subscriptionGroupID {
+            subscriptionStatusTask(for: subscriptionGroupID, action: action)
+        } else {
+            self
+        }
+    }
 }
 
-// Guarded because the subscribed previews read a DEBUG-only initializer.
+// Guarded because the subscribed previews read a DEBUG-only helper.
 #if DEBUG
 #Preview("Unsubscribed") {
     Form {
         PaywallStatusRow(source: "preview")
     }
-    .environment(PaywallService(configuration: .preview, texts: .preview))
+    .environment(PaywallService.preview(.oneSubscription))
 }
 
 // Without a purchase in the preview's StoreKit file, the row shows the fallback name and no
@@ -260,7 +279,7 @@ private extension View {
     Form {
         PaywallStatusRow(source: "preview")
     }
-    .environment(PaywallService(configuration: .preview, texts: .preview, previewSubscribed: true))
+    .environment(PaywallService.preview(.oneSubscription, entitlement: .subscription))
 }
 
 // The product's name loads from `ButchKitPreview.storekit`; until then, the fallback name.
@@ -268,6 +287,6 @@ private extension View {
     Form {
         PaywallStatusRow(source: "preview")
     }
-    .environment(PaywallService(configuration: .previewLifetime, texts: .preview, previewEntitlement: .lifetime))
+    .environment(PaywallService.preview(.subscriptionsAndOneTimePurchases, entitlement: .lifetime))
 }
 #endif

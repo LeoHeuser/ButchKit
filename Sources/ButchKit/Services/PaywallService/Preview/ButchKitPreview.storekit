@@ -43,6 +43,21 @@
       "productID" : "design.heuser.butchkit.preview.lifetimeSupporter",
       "referenceName" : "Preview Lifetime Supporter",
       "type" : "NonConsumable"
+    },
+    {
+      "displayPrice" : "129.99",
+      "familyShareable" : false,
+      "internalID" : "B07C4A33",
+      "localizations" : [
+        {
+          "description" : "Everything, once, and the next app funded too.",
+          "displayName" : "Lifetime Patron",
+          "locale" : "en_US"
+        }
+      ],
+      "productID" : "design.heuser.butchkit.preview.lifetimePatron",
+      "referenceName" : "Preview Lifetime Patron",
+      "type" : "NonConsumable"
     }
   ],
   "settings" : {
@@ -151,8 +166,47 @@
       "localizations" : [
 
       ],
-      "name" : "Preview Two Tiers",
+      "name" : "Preview Three Tiers",
       "subscriptions" : [
+        {
+          "adHocOffers" : [
+
+          ],
+          "billingPlans" : [
+            {
+              "billingPlanType" : "BILLED_UPFRONT",
+              "commitmentDisplayPrice" : "0.99",
+              "displayPrice" : "0.99",
+              "internalID" : "B07C4A28",
+              "isEnabled" : true
+            }
+          ],
+          "codeOffers" : [
+
+          ],
+          "displayPrice" : "0.99",
+          "familyShareable" : false,
+          "groupNumber" : 1,
+          "internalID" : "B07C4A27",
+          "introductoryOffers" : [
+
+          ],
+          "localizations" : [
+            {
+              "description" : "Billed every week. Cancel any time.",
+              "displayName" : "Weekly",
+              "locale" : "en_US"
+            }
+          ],
+          "productID" : "design.heuser.butchkit.tiers.weekly",
+          "recurringSubscriptionPeriod" : "P1W",
+          "referenceName" : "Preview Weekly",
+          "subscriptionGroupID" : "B07C4A21",
+          "type" : "RecurringSubscription",
+          "winbackOffers" : [
+
+          ]
+        },
         {
           "adHocOffers" : [
 
