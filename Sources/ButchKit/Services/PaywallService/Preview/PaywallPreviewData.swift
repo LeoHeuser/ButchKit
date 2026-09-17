@@ -7,6 +7,7 @@
 
 import SwiftUI
 
+#if DEBUG
 extension PaywallTexts {
     /// Plain English in place of keys: a package has no catalog, so a preview shows whatever it
     /// is given. Computed for the same reason as the pages below: the closures are not
@@ -109,3 +110,4 @@ extension View {
         background(.black).preferredColorScheme(.dark)
     }
 }
+#endif

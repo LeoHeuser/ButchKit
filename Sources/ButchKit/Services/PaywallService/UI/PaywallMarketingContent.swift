@@ -59,6 +59,7 @@ struct PaywallMarketingContent: View {
     }
 }
 
+#if DEBUG
 // `height` stands in for what PaywallView computes; roughly the default share on a phone.
 #Preview("With photos") {
     PaywallMarketingContent(features: .previewFeatures, height: 440)
@@ -74,3 +75,4 @@ struct PaywallMarketingContent: View {
     PaywallMarketingContent(features: .previewFeaturesMixed, height: 440)
         .paywallPreviewGround()
 }
+#endif

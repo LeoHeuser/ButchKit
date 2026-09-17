@@ -33,7 +33,9 @@ struct PaywallBackgroundImage: View {
     }
 }
 
+#if DEBUG
 #Preview {
     PaywallBackgroundImage(image: .previewPhoto(1))
         .paywallPreviewGround()
 }
+#endif

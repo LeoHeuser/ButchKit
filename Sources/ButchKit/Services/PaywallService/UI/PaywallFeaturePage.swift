@@ -43,6 +43,7 @@ struct PaywallFeaturePage: View {
     }
 }
 
+#if DEBUG
 #Preview("Photo and description") {
     PaywallFeaturePage(feature: .previewFull)
         .paywallPreviewGround()
@@ -62,3 +63,4 @@ struct PaywallFeaturePage: View {
     PaywallFeaturePage(feature: .previewTitleOnly)
         .paywallPreviewGround()
 }
+#endif

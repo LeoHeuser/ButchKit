@@ -72,6 +72,7 @@ private struct PaywallProductStyle: ProductViewStyle {
     }
 }
 
+#if DEBUG
 // Loads from `ButchKitPreview.storekit`; see the note in `PaywallView.swift` if the cards show
 // nothing but a spinner.
 #Preview {
@@ -79,3 +80,4 @@ private struct PaywallProductStyle: ProductViewStyle {
         .environment(PaywallService.preview(.threeOneTimePurchases))
         .paywallPreviewGround()
 }
+#endif

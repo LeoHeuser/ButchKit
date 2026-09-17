@@ -344,9 +344,10 @@ private extension View {
     }
 }
 
-// The products load from `ButchKitPreview.storekit`, which has to be selected under
-// Product > Scheme > Edit Scheme > Run > Options. Xcode drops that reference when it rewrites the
-// scheme; re-add it there if a preview shows "Subscription Unavailable" instead of the buttons.
+#if DEBUG
+// The products load from `ButchKitPreview.storekit`, which only the ButchKit Previews scheme in
+// `Development/ButchKit.xcworkspace` selects. Open that workspace and pick the scheme if a preview
+// shows "Subscription Unavailable" instead of the buttons.
 // Every setup is a case of `PaywallPreviewStore`; switch a preview by changing its case.
 #Preview("1 Subscription") {
     PaywallView.preview(.oneSubscription)
@@ -388,3 +389,4 @@ private extension View {
 #Preview("Empty + One-Time") {
     PaywallView.preview(.threeOneTimePurchases, features: [])
 }
+#endif

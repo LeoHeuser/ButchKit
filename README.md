@@ -36,3 +36,11 @@ Prose that applies across the library lives in [`Documentation/`](Documentation/
 ButchKit ships no strings. Every text it shows is handed in by your app, so each key is written
 in your code and Xcode extracts it into your catalogs like any other string.
 See [Localization](Documentation/ButchKit.md#localization) for which string goes where.
+
+## Development
+
+Work on ButchKit's previews in [`Development/ButchKit.xcworkspace`](Development/ButchKit.xcworkspace)
+with the **ButchKit Previews** scheme. Only that scheme selects the StoreKit file the paywall
+previews load their products from. The package's own scheme stays free of it, so an app workspace
+that includes a local ButchKit checkout sees no StoreKit settings of ButchKit's. Close that app
+workspace first: Xcode opens a package in one window at a time.

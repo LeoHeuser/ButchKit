@@ -14,6 +14,9 @@ DerivedData/
 # Xcode
 *.xcodeproj/*
 *.xcworkspace/*
+# The preview workspace, the one place the StoreKit file is wired in. See README.md.
+!/Development/ButchKit.xcworkspace/contents.xcworkspacedata
+!/Development/ButchKit.xcworkspace/xcshareddata/
 *.playground
 timeline.xctimeline
 playground.xcworkspace

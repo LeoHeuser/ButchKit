@@ -7,11 +7,14 @@
 
 import SwiftUI
 
+#if DEBUG
 /// The product setups the paywall previews cover, from the smallest paywall to the fullest.
 ///
-/// Every setup lives in the single `ButchKitPreview.storekit` next to this file. A scheme holds
-/// one StoreKit configuration, and the previews read that one: separate files would mean only one
-/// setup could load at a time, while one file lets every preview work at once.
+/// Every setup lives in the single `ButchKitPreview.storekit` next to this file, which the ButchKit
+/// Previews scheme in `Development/ButchKit.xcworkspace` selects. A scheme holds one StoreKit
+/// configuration, and the previews read that one: separate files would mean only one setup could
+/// load at a time, while one file lets every preview work at once. Debug only, like the preview data
+/// next to it, so no preview code reaches an app's release build.
 enum PaywallPreviewStore {
     /// One monthly plan, the simplest paywall there is.
     case oneSubscription
@@ -52,12 +55,10 @@ extension PaywallService {
         PaywallService(configuration: store.configuration, texts: .preview)
     }
 
-#if DEBUG
     /// The same with a fixed answer for ``entitlement``, for previews of what a paying user sees.
     static func preview(_ store: PaywallPreviewStore, entitlement: PaywallEntitlement) -> PaywallService {
         PaywallService(configuration: store.configuration, texts: .preview, previewEntitlement: entitlement)
     }
-#endif
 }
 
 extension PaywallView {
@@ -68,3 +69,4 @@ extension PaywallView {
             .environment(PaywallService(configuration: store.configuration, texts: .preview, features: features))
     }
 }
+#endif
