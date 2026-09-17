@@ -76,9 +76,11 @@ let paywallTexts = PaywallTexts(
     restoreFailedTitle: String(localized: "error.paywall.restoreFailed.title", table: "Errors"),
     restoreFailedMessage: String(localized: "error.paywall.restoreFailed.message", table: "Errors"),
     offer: "button.settings.subscribe",
+    offerLabel: String(localized: "accessibility.button.settings.subscribe.label", table: "Accessibility"),
     offerHint: String(localized: "accessibility.button.settings.subscribe", table: "Accessibility"),
     fallbackPlanName: "label.settings.subscription.plan",
     manage: "button.settings.manageSubscription",
+    manageLabel: String(localized: "accessibility.button.settings.manageSubscription.label", table: "Accessibility"),
     manageHint: String(localized: "accessibility.button.settings.manageSubscription", table: "Accessibility"),
     renews: { Text("label.settings.subscription.renews \($0, format: .dateTime.day().month().year())") },
     ends: { Text("label.settings.subscription.ends \($0, format: .dateTime.day().month().year())") },
@@ -371,10 +373,10 @@ written in the app's own code, where Xcode finds it and extracts it into the app
 any other string: nothing is added by hand, and the paywall speaks every language the app does.
 
 The app also picks each string's table. Plain labels are `LocalizedStringKey`s on the default
-`Localizable` table. Hints and error text are `String`s the app resolves itself, naming the
-table: the purchase and restore failure alerts and the billing issue from `Errors`, the restore
-success and nothing-to-restore titles from `Localizable`, the two VoiceOver hints from
-`Accessibility`. See [ButchKit.md](ButchKit.md#localization) for the rule.
+`Localizable` table. Accessibility text and error text are `String`s the app resolves itself,
+naming the table: the purchase and restore failure alerts and the billing issue from `Errors`, the
+restore success and nothing-to-restore titles from `Localizable`, the two accessibility labels and
+the two VoiceOver hints from `Accessibility`. See [ButchKit.md](ButchKit.md#localization) for the rule.
 
 Suggested English for the settings row: `See subscription plans` for the offer, `Renews on %@` and
 `Ends on %@` for the dated lines, `Payment didn't go through.` for the billing issue. For the

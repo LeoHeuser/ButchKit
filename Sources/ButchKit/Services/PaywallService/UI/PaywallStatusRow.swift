@@ -44,11 +44,13 @@ public struct PaywallStatusRow: View {
             switch status.entitlement {
             case .none:
                 Button(paywall.texts.offer, action: status.showPaywall)
+                    .accessibilityLabel(paywall.texts.offerLabel)
                     .accessibilityHint(paywall.texts.offerHint)
             case .subscription, .lifetime:
                 LabeledContent {
                     if status.canManageSubscription {
                         Button(paywall.texts.manage, action: status.manageSubscription)
+                            .accessibilityLabel(paywall.texts.manageLabel)
                             .accessibilityHint(paywall.texts.manageHint)
                     }
                 } label: {

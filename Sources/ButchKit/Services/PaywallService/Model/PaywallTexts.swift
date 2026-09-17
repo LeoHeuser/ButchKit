@@ -29,9 +29,11 @@ import SwiftUI
 ///     restoreFailedTitle: String(localized: "error.paywall.restoreFailed.title", table: "Errors"),
 ///     restoreFailedMessage: String(localized: "error.paywall.restoreFailed.message", table: "Errors"),
 ///     offer: "button.settings.subscribe",
+///     offerLabel: String(localized: "accessibility.button.settings.subscribe.label", table: "Accessibility"),
 ///     offerHint: String(localized: "accessibility.button.settings.subscribe", table: "Accessibility"),
 ///     fallbackPlanName: "label.settings.subscription.plan",
 ///     manage: "button.settings.manageSubscription",
+///     manageLabel: String(localized: "accessibility.button.settings.manageSubscription.label", table: "Accessibility"),
 ///     manageHint: String(localized: "accessibility.button.settings.manageSubscription", table: "Accessibility"),
 ///     renews: { Text("label.settings.subscription.renews \($0, format: .dateTime.day().month().year())") },
 ///     ends: { Text("label.settings.subscription.ends \($0, format: .dateTime.day().month().year())") },
@@ -40,9 +42,9 @@ import SwiftUI
 /// ```
 ///
 /// Three shapes, by what the string is. A plain label is a `LocalizedStringKey`, looked up in the
-/// app's default table. A hint or an error is a `String` the app has already resolved, so the app
-/// names its table itself. The two dated lines are closures, so the key, its placeholder and the
-/// date's format all stand in the app's code together.
+/// app's default table. An accessibility label, a hint or an error is a `String` the app has
+/// already resolved, so the app names its table itself. The two dated lines are closures, so the
+/// key, its placeholder and the date's format all stand in the app's code together.
 public struct PaywallTexts {
 
     // MARK: - Paywall sheet
@@ -81,12 +83,18 @@ public struct PaywallTexts {
 
     /// The ``PaywallStatusRow`` button that opens the paywall while there is no subscription.
     public let offer: LocalizedStringKey
+    /// The accessibility label of ``offer``. Keep the visible words in it, so Voice Control still
+    /// finds the button by what it shows.
+    public let offerLabel: String
     /// The VoiceOver hint of ``offer``.
     public let offerHint: String
     /// The plan's name until the App Store's own name has loaded.
     public let fallbackPlanName: LocalizedStringKey
     /// The button into the system's subscription management.
     public let manage: LocalizedStringKey
+    /// The accessibility label of ``manage``. The visible word is only the verb, so the label says
+    /// what is managed and keeps that word for Voice Control.
+    public let manageLabel: String
     /// The VoiceOver hint of ``manage``.
     public let manageHint: String
     /// The line under the plan name while it renews, built from the renewal date.
@@ -110,9 +118,11 @@ public struct PaywallTexts {
         restoreFailedTitle: String,
         restoreFailedMessage: String,
         offer: LocalizedStringKey,
+        offerLabel: String,
         offerHint: String,
         fallbackPlanName: LocalizedStringKey,
         manage: LocalizedStringKey,
+        manageLabel: String,
         manageHint: String,
         renews: @escaping (Date) -> Text,
         ends: @escaping (Date) -> Text,
@@ -131,9 +141,11 @@ public struct PaywallTexts {
         self.restoreFailedTitle = restoreFailedTitle
         self.restoreFailedMessage = restoreFailedMessage
         self.offer = offer
+        self.offerLabel = offerLabel
         self.offerHint = offerHint
         self.fallbackPlanName = fallbackPlanName
         self.manage = manage
+        self.manageLabel = manageLabel
         self.manageHint = manageHint
         self.renews = renews
         self.ends = ends
