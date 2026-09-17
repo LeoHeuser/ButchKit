@@ -24,6 +24,7 @@ The paywall is not a place for experiments. If the layout has to change, it chan
 | **`PaywallEvent`** | The funnel: presented, purchase started, completed, pending, failed, each with its source and the product | ButchKit reports, you forward to analytics |
 | **`PaywallRequest`** | The presentation in flight, carrying its `source` | ButchKit |
 | **`PaywallStatusRow`** | The settings row: plan, renewal date and management; the lifetime purchase; or the offer | ButchKit |
+| **`PaywallStatusReader`** | What that row knows and does, as a `PaywallStatus`, for an app that draws its own row | ButchKit loads, you draw |
 
 Entitlement is decided per **subscription group**, not per product. Every tier in the group unlocks the app. Adding a monthly tier next to the yearly one is an App Store Connect change, not a code change.
 
@@ -236,6 +237,39 @@ App Store's subscription page.
 One group with several plans (monthly and yearly, or Plus and Pro) is the case this row is
 built for: Apple's sheet handles every change between them. Subscriptions a user holds side by
 side would need a second group, which Apple advises against and ButchKit does not support.
+
+### A row of your own
+
+`PaywallStatusRow` is plain text, which fits a settings screen of plain rows. An app whose rows
+look different, with icons for example, draws its own on `PaywallStatusReader`. The reader loads
+and follows everything the row above shows and owns both ways on, so the app writes no StoreKit
+code and cannot get the rules wrong:
+
+```swift
+PaywallStatusReader(source: "settings") { status in
+    switch status.entitlement {
+    case .none:
+        Button(action: status.showPaywall) {
+            Label(paywall.texts.offer, systemImage: "crown")
+        }
+    case .subscription, .lifetime:
+        LabeledContent {
+            if status.canManageSubscription {
+                Button(paywall.texts.manage, action: status.manageSubscription)
+            }
+        } label: {
+            paywall.texts.planName(status.planName)
+            if let detail = status.detail {
+                paywall.texts.detail(detail)
+            }
+        }
+    }
+}
+```
+
+What each value means is documented on `PaywallStatus`. `PaywallTexts.planName(_:)` and
+`PaywallTexts.detail(_:)` turn the name and the detail into the same words the plain row shows, as
+`Text` the app styles freely.
 
 ## What the user sees
 

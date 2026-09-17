@@ -139,4 +139,24 @@ public struct PaywallTexts {
         self.ends = ends
         self.billingIssue = billingIssue
     }
+
+    // MARK: - Settings row words
+
+    // Words, not views: a row of the app's own on `PaywallStatusReader` gets the same wording and
+    // the same rules as `PaywallStatusRow`, and still decides every font, color and icon itself.
+
+    /// The plan's name: the App Store's own once loaded, ``fallbackPlanName`` until then.
+    public func planName(_ name: String?) -> Text {
+        // A product name from App Store Connect is already localized there.
+        name.map { Text(verbatim: $0) } ?? Text(fallbackPlanName)
+    }
+
+    /// The line under the plan's name.
+    public func detail(_ detail: SubscriptionDetail) -> Text {
+        switch detail {
+        case .renews(let date): renews(date)
+        case .ends(let date): ends(date)
+        case .billingIssue: Text(billingIssue)
+        }
+    }
 }

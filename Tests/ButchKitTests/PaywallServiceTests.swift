@@ -391,6 +391,56 @@ struct SubscriptionDetailTests {
     }
 }
 
+@Suite("PaywallStatus")
+@MainActor
+struct PaywallStatusTests {
+    private let date = Date(timeIntervalSince1970: 1_800_000_000)
+
+    private func status(
+        _ entitlement: PaywallEntitlement,
+        renewing: Bool = true,
+        loadedName: (productID: String, name: String)? = nil
+    ) -> PaywallStatus {
+        PaywallStatus(
+            entitlement: entitlement,
+            heldPlan: HeldPlan(state: .subscribed, productID: "yearly", expirationDate: date, willAutoRenew: renewing),
+            lifetimeProductID: "lifetime",
+            loadedName: loadedName,
+            showPaywall: {},
+            manageSubscription: {}
+        )
+    }
+
+    @Test("Names the subscription for a subscriber and the lifetime product for an owner")
+    func productID() {
+        #expect(status(.subscription).productID == "yearly")
+        #expect(status(.lifetime).productID == "lifetime")
+        #expect(status(.none).productID == nil)
+    }
+
+    /// After a plan change the old name would name a plan the user no longer holds.
+    @Test("Drops a name loaded for another product")
+    func staleName() {
+        #expect(status(.subscription, loadedName: ("yearly", "Yearly")).planName == "Yearly")
+        #expect(status(.subscription, loadedName: ("monthly", "Monthly")).planName == nil)
+    }
+
+    @Test("Tells what happens next only for a subscription")
+    func detail() {
+        #expect(status(.subscription).detail == .renews(date))
+        #expect(status(.lifetime).detail == nil)
+        #expect(status(.none).detail == nil)
+    }
+
+    @Test("Offers management to a lifetime owner only while a subscription still renews")
+    func management() {
+        #expect(status(.subscription, renewing: false).canManageSubscription)
+        #expect(status(.lifetime, renewing: true).canManageSubscription)
+        #expect(!status(.lifetime, renewing: false).canManageSubscription)
+        #expect(!status(.none).canManageSubscription)
+    }
+}
+
 @Suite("HeldPlan")
 struct HeldPlanTests {
     private let earlier = Date(timeIntervalSince1970: 1_800_000_000)

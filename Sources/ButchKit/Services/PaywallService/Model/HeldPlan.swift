@@ -8,7 +8,7 @@
 import Foundation
 import StoreKit
 
-/// One subscription status, reduced to what ``PaywallStatusRow`` shows about it.
+/// One subscription status, reduced to what ``PaywallStatus`` says about it.
 ///
 /// Plain values rather than StoreKit's status, which has no public initializer: only this way
 /// can the choice between several statuses be tested.

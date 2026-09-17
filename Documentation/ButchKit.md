@@ -75,6 +75,7 @@ Every type is documented in code. This is the map.
 - `PaywallEvent` — the funnel, forwarded through `PaywallService.onEvent` to the app's analytics.
 - `PaywallRequest` — the presentation in flight.
 - `PaywallStatusRow` — the settings row: plan name, renewal date and management; the lifetime purchase, with management while a subscription still renews; or the offer.
+- `PaywallStatusReader` — the same status and actions as a `PaywallStatus`, for an app that draws its own row.
 - `View.paywallSheet()` — reinforcement for views that are themselves sheets.
 
 ### External packages

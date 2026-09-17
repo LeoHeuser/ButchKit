@@ -8,12 +8,11 @@
 import Foundation
 import StoreKit
 
-/// The line under the plan's name in ``PaywallStatusRow``: what happens next with the
-/// subscription.
+/// What happens next with a subscription, the line under the plan's name in a settings row.
 ///
 /// A plain value rather than StoreKit's own status, because `Product.SubscriptionInfo.Status`
 /// has no public initializer: only a value built from its parts can be tested.
-enum SubscriptionDetail: Equatable {
+public enum SubscriptionDetail: Equatable, Sendable {
     /// Renews on its own on this date.
     case renews(Date)
     /// Auto-renew is off, so access ends on this date.
