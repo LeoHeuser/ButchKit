@@ -34,7 +34,10 @@ struct PaywallFeaturePage: View {
         .frame(maxWidth: .infinity, maxHeight: .infinity, alignment: hasPhoto ? .bottom : .center)
         .background {
             if let image = feature.image {
+                // Up to the sheet's top edge even where the page is inset for the navigation bar.
+                // The text stays inside the safe area, below the close button.
                 PaywallBackgroundImage(image: image)
+                    .ignoresSafeArea(edges: .top)
             }
         }
     }

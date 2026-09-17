@@ -14,7 +14,36 @@
 
   ],
   "products" : [
-
+    {
+      "displayPrice" : "49.99",
+      "familyShareable" : false,
+      "internalID" : "B07C4A31",
+      "localizations" : [
+        {
+          "description" : "Everything, once.",
+          "displayName" : "Lifetime",
+          "locale" : "en_US"
+        }
+      ],
+      "productID" : "design.heuser.butchkit.preview.lifetime",
+      "referenceName" : "Preview Lifetime",
+      "type" : "NonConsumable"
+    },
+    {
+      "displayPrice" : "79.99",
+      "familyShareable" : false,
+      "internalID" : "B07C4A32",
+      "localizations" : [
+        {
+          "description" : "Everything, once, and a thank-you on top.",
+          "displayName" : "Lifetime Supporter",
+          "locale" : "en_US"
+        }
+      ],
+      "productID" : "design.heuser.butchkit.preview.lifetimeSupporter",
+      "referenceName" : "Preview Lifetime Supporter",
+      "type" : "NonConsumable"
+    }
   ],
   "settings" : {
     "_askToBuyEnabled" : false,

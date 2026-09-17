@@ -15,21 +15,25 @@
 ///     switch event {
 ///     case .presented(let source):
 ///         TelemetryDeck.signal("paywall.presented", parameters: ["paywall.trigger": source])
+///     case .purchaseCompleted(let source, let productID):
+///         TelemetryDeck.signal("paywall.completed", parameters: ["paywall.trigger": source, "product": productID])
 ///     // …
 ///     }
 /// }
 /// ```
 ///
 /// `source` is the app's own name for where the user hit the lock ("newScript", "settings"), the
-/// value passed to `PaywallService.present(source:)` or `require(source:_:)`.
+/// value passed to `PaywallService.present(source:)` or `require(source:_:)`. `productID` is the
+/// App Store product the user chose, so a paywall with several plans, or a lifetime purchase next
+/// to them, can tell which one sells.
 public enum PaywallEvent: Sendable, Equatable {
     /// The paywall appeared. The funnel's denominator.
     case presented(source: String)
-    /// The user tapped a subscribe button and the App Store sheet is about to show.
-    case purchaseStarted(source: String)
+    /// The user tapped a purchase button and the App Store sheet is about to show.
+    case purchaseStarted(source: String, productID: String)
     /// A fresh purchase from the paywall went through. A free trial start counts too. Restores
     /// and renewals arrive through `Transaction.updates` and are deliberately not reported here.
-    case purchaseCompleted(source: String)
+    case purchaseCompleted(source: String, productID: String)
     /// Ask to Buy: the purchase waits for approval. The later approval never reaches the paywall.
     case purchasePending(source: String)
     /// The purchase failed. `reason` is the error's localized description. A user backing out

@@ -67,13 +67,14 @@ Every type is documented in code. This is the map.
 `Sources/ButchKit/Services/PaywallService/`
 
 - `View.paywallEnvironment(_:texts:features:)` — root-level integration. Creates the service, injects it and attaches the paywall sheet.
-- `PaywallService` — `hasSubscription`, fed by StoreKit 2, plus `present(source:)` and `require(source:_:)` to show the paywall from anywhere.
-- `PaywallConfiguration` — the subscription group and policy URLs.
+- `PaywallService` — `hasAccess` and `entitlement`, fed by StoreKit 2, plus `present(source:)` and `require(source:_:)` to show the paywall from anywhere.
+- `PaywallConfiguration` — the subscription group, the optional lifetime products, policy URLs and the marketing pages' height.
+- `PaywallEntitlement` — `none`, `subscription` or `lifetime`.
 - `PaywallTexts` — every word the paywall and the settings row show, handed in by the app.
 - `PayWallFeature` — one marketing page: title, description, image.
 - `PaywallEvent` — the funnel, forwarded through `PaywallService.onEvent` to the app's analytics.
 - `PaywallRequest` — the presentation in flight.
-- `PaywallStatusRow` — the settings row: plan name, renewal date and management, or the offer.
+- `PaywallStatusRow` — the settings row: plan name, renewal date and management; the lifetime purchase, with management while a subscription still renews; or the offer.
 - `View.paywallSheet()` — reinforcement for views that are themselves sheets.
 
 ### External packages

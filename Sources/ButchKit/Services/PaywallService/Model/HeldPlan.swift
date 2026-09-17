@@ -31,3 +31,19 @@ struct HeldPlan: Equatable {
         (state == .subscribed ? 1 : 0, expirationDate ?? .distantPast)
     }
 }
+
+extension HeldPlan {
+    /// The plan a StoreKit status describes, or `nil` when its transaction or renewal info did not
+    /// pass verification: nothing is shown on data that did not check out.
+    init?(_ status: Product.SubscriptionInfo.Status) {
+        guard case .verified(let transaction) = status.transaction,
+              case .verified(let renewal) = status.renewalInfo
+        else { return nil }
+        self.init(
+            state: status.state,
+            productID: transaction.productID,
+            expirationDate: transaction.expirationDate,
+            willAutoRenew: renewal.willAutoRenew
+        )
+    }
+}

@@ -18,6 +18,16 @@ extension PaywallConfiguration {
     /// Monthly and yearly in one group, the yearly with a free week. Shows how the paywall lays
     /// out more than one tier.
     static let previewTiers = PaywallConfiguration(subscriptionGroupID: "B07C4A21")
+
+    /// The two tiers plus two one-time purchases, so the lifetime segment shows a list rather
+    /// than a single product.
+    static let previewLifetime = PaywallConfiguration(
+        subscriptionGroupID: "B07C4A21",
+        lifetimeProductIDs: [
+            "design.heuser.butchkit.preview.lifetime",
+            "design.heuser.butchkit.preview.lifetimeSupporter"
+        ]
+    )
 }
 
 extension PaywallTexts {
@@ -31,6 +41,13 @@ extension PaywallTexts {
             termsOfServiceTitle: "Terms of Service",
             purchaseFailedTitle: "The purchase didn't go through",
             purchaseFailedMessage: "Nothing was charged. Try again in a moment.",
+            subscriptionTab: "Subscription",
+            oneTimeTab: "One-Time Purchase",
+            restorePurchases: "Restore Purchases",
+            restoreSucceededTitle: "Purchase Restored",
+            nothingToRestoreTitle: "No Purchase to Restore",
+            restoreFailedTitle: "Restore Failed",
+            restoreFailedMessage: "Your purchase could not be restored. Check your internet connection and try again.",
             offer: "See subscription plans",
             offerHint: "Opens the subscription offer.",
             fallbackPlanName: "Plus",

@@ -21,6 +21,13 @@ import SwiftUI
 ///     termsOfServiceTitle: "webView.termsOfUse.title",
 ///     purchaseFailedTitle: String(localized: "error.paywall.purchaseFailed.title", table: "Errors"),
 ///     purchaseFailedMessage: String(localized: "error.paywall.purchaseFailed.message", table: "Errors"),
+///     subscriptionTab: "paywall.segment.subscription",
+///     oneTimeTab: "paywall.segment.oneTime",
+///     restorePurchases: "button.paywall.restorePurchases",
+///     restoreSucceededTitle: String(localized: "alert.paywall.restore.succeeded.title"),
+///     nothingToRestoreTitle: String(localized: "alert.paywall.restore.nothingFound.title"),
+///     restoreFailedTitle: String(localized: "error.paywall.restoreFailed.title", table: "Errors"),
+///     restoreFailedMessage: String(localized: "error.paywall.restoreFailed.message", table: "Errors"),
 ///     offer: "button.settings.subscribe",
 ///     offerHint: String(localized: "accessibility.button.settings.subscribe", table: "Accessibility"),
 ///     fallbackPlanName: "label.settings.subscription.plan",
@@ -50,6 +57,25 @@ public struct PaywallTexts {
     public let purchaseFailedTitle: String
     /// Message of the alert after a failed purchase.
     public let purchaseFailedMessage: String
+    /// The segment for the subscription plans, shown when the app also sells lifetime products.
+    public let subscriptionTab: LocalizedStringKey
+    /// The segment for the lifetime products.
+    public let oneTimeTab: LocalizedStringKey
+    /// The restore button at the top right of the paywall, for subscriptions and lifetime products
+    /// alike. Shown as text, so keep it short.
+    public let restorePurchases: LocalizedStringKey
+    /// Title of the alert after a restore brought a purchase back. One
+    /// sentence, so it has no message. Its OK closes the paywall.
+    public let restoreSucceededTitle: String
+    /// Title of the alert after a restore that found no purchase to bring back. One sentence, so
+    /// it has no message.
+    public let nothingToRestoreTitle: String
+    /// Title of the alert after a restore that failed: the App Store could not be reached, or the
+    /// purchase it found did not pass verification.
+    public let restoreFailedTitle: String
+    /// Message of that alert. One text for both causes, so it asks to check the connection and try
+    /// again rather than naming either.
+    public let restoreFailedMessage: String
 
     // MARK: - Settings row
 
@@ -76,6 +102,13 @@ public struct PaywallTexts {
         termsOfServiceTitle: LocalizedStringKey,
         purchaseFailedTitle: String,
         purchaseFailedMessage: String,
+        subscriptionTab: LocalizedStringKey,
+        oneTimeTab: LocalizedStringKey,
+        restorePurchases: LocalizedStringKey,
+        restoreSucceededTitle: String,
+        nothingToRestoreTitle: String,
+        restoreFailedTitle: String,
+        restoreFailedMessage: String,
         offer: LocalizedStringKey,
         offerHint: String,
         fallbackPlanName: LocalizedStringKey,
@@ -90,6 +123,13 @@ public struct PaywallTexts {
         self.termsOfServiceTitle = termsOfServiceTitle
         self.purchaseFailedTitle = purchaseFailedTitle
         self.purchaseFailedMessage = purchaseFailedMessage
+        self.subscriptionTab = subscriptionTab
+        self.oneTimeTab = oneTimeTab
+        self.restorePurchases = restorePurchases
+        self.restoreSucceededTitle = restoreSucceededTitle
+        self.nothingToRestoreTitle = nothingToRestoreTitle
+        self.restoreFailedTitle = restoreFailedTitle
+        self.restoreFailedMessage = restoreFailedMessage
         self.offer = offer
         self.offerHint = offerHint
         self.fallbackPlanName = fallbackPlanName
