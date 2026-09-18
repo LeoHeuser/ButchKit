@@ -41,4 +41,10 @@ public enum PaywallEvent: Sendable, Equatable {
     case purchaseFailed(source: String, reason: String)
     /// A transaction from the App Store failed verification and was not finished.
     case verificationFailed
+    /// Where an active subscriber stands, reported once per launch after the first entitlement
+    /// check. A snapshot of a state rather than a step in the funnel: it answers how many
+    /// subscribers have already canceled their trial or their paid period, and never counts as a
+    /// conversion. Users without a running subscription, lifetime owners included, report nothing,
+    /// so a chart of it compares active subscribers only.
+    case subscriptionStatus(phase: SubscriptionPhase, productID: String)
 }

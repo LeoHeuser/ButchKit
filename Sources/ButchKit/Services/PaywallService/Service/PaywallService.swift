@@ -167,7 +167,10 @@ public final class PaywallService {
     public func initialize() async {
         listenForUpdates()
         await refresh()
+        guard !isInitialized else { return }
         isInitialized = true
+        // After isInitialized, so a slow App Store answer never holds up a launch gate.
+        await reportSubscriptionPhase()
     }
 
     /// Re-reads the current entitlements. Call on foreground if a lapsed subscription should
@@ -258,7 +261,7 @@ public final class PaywallService {
             logger.error("Purchase failed: reason=\(reason, privacy: .public)")
         case .verificationFailed:
             logger.error("Transaction verification failed")
-        case .presented, .purchaseStarted, .purchaseCompleted:
+        case .presented, .purchaseStarted, .purchaseCompleted, .subscriptionStatus:
             break
         }
         onEvent?(event)
@@ -274,6 +277,20 @@ public final class PaywallService {
     }
 
     // MARK: - Private
+
+    /// See ``PaywallEvent/subscriptionStatus(phase:productID:)``.
+    private func reportSubscriptionPhase() async {
+        // Without a listener the App Store query would be wasted.
+        guard onEvent != nil, entitlement == .subscription, let groupID = configuration.subscriptionGroupID else { return }
+        do {
+            let statuses = try await Product.SubscriptionInfo.status(for: groupID)
+            guard let plan = HeldPlan.current(in: statuses), let phase = plan.phase else { return }
+            report(.subscriptionStatus(phase: phase, productID: plan.productID))
+        } catch {
+            // Analytics only, and the next launch tries again.
+            logger.error("Loading the subscription status for analytics failed: \(error.logCode, privacy: .public)")
+        }
+    }
 
     /// Takes an entitlement freshly read from StoreKit: notes a real loss of access and stores it.
     private func applyEntitlement(_ resolved: PaywallEntitlement) {

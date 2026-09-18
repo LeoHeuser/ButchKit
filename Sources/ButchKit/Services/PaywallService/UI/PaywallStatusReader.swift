@@ -83,7 +83,7 @@ public struct PaywallStatusReader<Content: View>: View {
                 // Loading and failure keep what is already known: the detail is decoration, and a
                 // line that blinks away on a network hiccup would read as a lapsed plan.
                 guard case .success(let statuses) = state else { return }
-                heldPlan = HeldPlan.current(in: statuses.compactMap(HeldPlan.init))
+                heldPlan = HeldPlan.current(in: statuses)
             }
             .manageSubscription(isPresented: $showsManageSheet, subscriptionGroupID: paywall.configuration.subscriptionGroupID)
     }

@@ -472,3 +472,33 @@ struct HeldPlanTests {
         #expect(HeldPlan.current(in: plans) == nil)
     }
 }
+
+@Suite("SubscriptionPhase")
+struct SubscriptionPhaseTests {
+    /// The four values feed a dashboard chart of active subscribers; renaming one silently splits
+    /// its slice into an old and a new label, so the exact strings are pinned here.
+    @Test("Maps trial and auto-renew to a stable value", arguments: [
+        (isInTrial: true, willAutoRenew: true, expected: "trialRenewing"),
+        (isInTrial: true, willAutoRenew: false, expected: "trialCanceled"),
+        (isInTrial: false, willAutoRenew: true, expected: "paidRenewing"),
+        (isInTrial: false, willAutoRenew: false, expected: "paidCanceled")
+    ])
+    func stableValues(testCase: (isInTrial: Bool, willAutoRenew: Bool, expected: String)) {
+        #expect(SubscriptionPhase(isInTrial: testCase.isInTrial, willAutoRenew: testCase.willAutoRenew).rawValue == testCase.expected)
+    }
+
+    @Test("Reports a canceled trial for a subscribed plan with auto-renew off")
+    func canceledTrial() {
+        let plan = HeldPlan(state: .subscribed, productID: "yearly", expirationDate: nil, willAutoRenew: false, isInTrial: true)
+        #expect(plan.phase == .trialCanceled)
+    }
+
+    @Test("Reports nothing while a payment problem is open", arguments: [
+        Product.SubscriptionInfo.RenewalState.inGracePeriod,
+        .inBillingRetryPeriod
+    ])
+    func paymentProblem(state: Product.SubscriptionInfo.RenewalState) {
+        let plan = HeldPlan(state: state, productID: "yearly", expirationDate: nil, willAutoRenew: true)
+        #expect(plan.phase == nil)
+    }
+}

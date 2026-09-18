@@ -11,8 +11,12 @@ import SwiftUI
 struct PaywallEnvironmentModifier: ViewModifier {
     @State private var service: PaywallService
 
-    init(configuration: PaywallConfiguration, texts: PaywallTexts, features: [PayWallFeature]) {
-        _service = State(initialValue: PaywallService(configuration: configuration, texts: texts, features: features))
+    init(configuration: PaywallConfiguration, texts: PaywallTexts, features: [PayWallFeature], onEvent: ((PaywallEvent) -> Void)?) {
+        let service = PaywallService(configuration: configuration, texts: texts, features: features)
+        // Set before the first `initialize()`, so the launch's subscription status never goes
+        // out to a listener that has not arrived yet.
+        service.onEvent = onEvent
+        _service = State(initialValue: service)
     }
 
     func body(content: Content) -> some View {
@@ -75,12 +79,14 @@ public extension View {
     ///   - texts: Every word the paywall and the settings row show, from the app's own catalogs.
     ///   - features: The marketing pages the paywall shows, in order. Leave them out and the
     ///     paywall shows Apple's own storefront instead.
+    ///   - onEvent: Where every ``PaywallEvent`` goes, usually the app's analytics.
     func paywallEnvironment(
         _ configuration: PaywallConfiguration,
         texts: PaywallTexts,
-        features: [PayWallFeature] = []
+        features: [PayWallFeature] = [],
+        onEvent: ((PaywallEvent) -> Void)? = nil
     ) -> some View {
-        modifier(PaywallEnvironmentModifier(configuration: configuration, texts: texts, features: features))
+        modifier(PaywallEnvironmentModifier(configuration: configuration, texts: texts, features: features, onEvent: onEvent))
     }
 
     /// Reinforcement for views that are themselves presented as a sheet.

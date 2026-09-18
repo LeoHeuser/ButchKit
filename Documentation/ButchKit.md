@@ -73,6 +73,7 @@ Every type is documented in code. This is the map.
 - `PaywallTexts` — every word the paywall and the settings row show, handed in by the app.
 - `PayWallFeature` — one marketing page: title, description, image.
 - `PaywallEvent` — the funnel, forwarded through `PaywallService.onEvent` to the app's analytics.
+- `SubscriptionPhase` — trial or paid, renewing or canceled: the once-per-launch snapshot `PaywallEvent.subscriptionStatus` carries.
 - `PaywallRequest` — the presentation in flight.
 - `PaywallStatusRow` — the settings row: plan name, renewal date and management; the lifetime purchase, with management while a subscription still renews; or the offer.
 - `PaywallStatusReader` — the same status and actions as a `PaywallStatus`, for an app that draws its own row.

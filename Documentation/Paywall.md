@@ -22,6 +22,7 @@ The paywall is not a place for experiments. If the layout has to change, it chan
 | **`PaywallService`** | `hasAccess` and `entitlement`, plus `present` and `require` to show the paywall | ButchKit, created by the root modifier |
 | **`PaywallEntitlement`** | `none`, `subscription` or `lifetime` | ButchKit |
 | **`PaywallEvent`** | The funnel: presented, purchase started, completed, pending, failed, each with its source and the product | ButchKit reports, you forward to analytics |
+| **`SubscriptionPhase`** | Where an active subscriber stands: trial or paid, renewing or canceled. Carried by `PaywallEvent.subscriptionStatus` | ButchKit |
 | **`PaywallRequest`** | The presentation in flight, carrying its `source` | ButchKit |
 | **`PaywallStatusRow`** | The settings row: plan, renewal date and management; the lifetime purchase; or the offer | ButchKit |
 | **`PaywallStatusReader`** | What that row knows and does, as a `PaywallStatus`, for an app that draws its own row | ButchKit loads, you draw |
@@ -335,35 +336,33 @@ what the other answer still allows.
 
 ## Analytics
 
-ButchKit has no analytics dependency. Assign `onEvent` once, in the root view, and forward:
+ButchKit has no analytics dependency. Hand the root modifier a handler and forward:
 
 ```swift
-struct RootView: View {
-    @Environment(PaywallService.self) private var paywall
-
-    var body: some View {
-        ContentView()
-            .onAppear {
-                paywall.onEvent = { event in
-                    switch event {
-                    case .presented(let source):
-                        TelemetryDeck.signal("paywall.presented", parameters: ["paywall.trigger": source])
-                    case .purchaseStarted(let source, let productID):
-                        TelemetryDeck.signal("paywall.purchaseInitiated", parameters: ["paywall.trigger": source, "product": productID])
-                    case .purchaseCompleted(let source, let productID):
-                        TelemetryDeck.signal("paywall.completed", parameters: ["paywall.trigger": source, "product": productID])
-                    case .purchasePending, .purchaseFailed:
-                        break
-                    case .verificationFailed:
-                        TelemetryDeck.signal("purchase.verificationFailed")
-                    }
-                }
-            }
+RootView()
+    .paywallEnvironment(paywallConfig, texts: paywallTexts, features: paywallFeatures) { event in
+        switch event {
+        case .presented(let source):
+            TelemetryDeck.signal("paywall.presented", parameters: ["paywall.trigger": source])
+        case .purchaseStarted(let source, let productID):
+            TelemetryDeck.signal("paywall.purchaseInitiated", parameters: ["paywall.trigger": source, "product": productID])
+        case .purchaseCompleted(let source, let productID):
+            TelemetryDeck.signal("paywall.completed", parameters: ["paywall.trigger": source, "product": productID])
+        case .purchasePending, .purchaseFailed:
+            break
+        case .verificationFailed:
+            TelemetryDeck.signal("purchase.verificationFailed")
+        case .subscriptionStatus(let phase, let productID):
+            TelemetryDeck.signal("subscription.status", parameters: ["subscription.phase": phase.rawValue, "product": productID])
+        }
     }
-}
 ```
 
+The handler is in place before the first entitlement check. Assigning `PaywallService.onEvent` later from a view still works, but misses what the launch already reported.
+
 `presented` is the funnel's denominator, `purchaseCompleted` the numerator. A free trial start counts as completed. Restores and renewals are deliberately not events: they arrive through `Transaction.updates`, not through the paywall, and would inflate the conversion rate. A restore from the paywall's button sends no event either; only a purchase it finds that fails verification reports `.verificationFailed`, a diagnostic rather than a conversion. `productID` tells the plans apart, and the lifetime products from all of them, so a paywall with several offers can say which one sells.
+
+`subscriptionStatus` stands apart from the funnel. It is a snapshot, reported once per launch, and only for a user whose access rests on a running subscription. Its `SubscriptionPhase` is one of four stable values: `trialRenewing`, `trialCanceled`, `paidRenewing`, `paidCanceled`. Charted over active subscribers it answers how many have already canceled their free trial, the earliest sign of what the trial converts. Non-subscribers and lifetime owners report nothing, and neither does a subscription with an open payment problem, which is neither renewing nor canceled.
 
 ## Localization
 
@@ -431,5 +430,5 @@ A compact checklist for anyone, human or AI, touching the paywall in a ButchKit 
 - Marketing pages are `PayWallFeature` values, never custom views. The layout is fixed in ButchKit.
 - Pages are optional. With none, Apple's storefront takes over; never build a placeholder page to fill the gap.
 - Every paywall string is written in the app's code, in `PaywallTexts` and the feature pages, so Xcode extracts it into the app's catalogs. Never add a key to a catalog by hand.
-- Forward `PaywallEvent` to analytics from one place. Never track a restore or renewal as a conversion.
+- Forward `PaywallEvent` to analytics from one place, the `onEvent` handler of `.paywallEnvironment`. Never track a restore or renewal as a conversion.
 - Never add consumables, a non-consumable that unlocks only part of the app, a grace period, or network checks to the service.
