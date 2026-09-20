@@ -322,6 +322,34 @@ struct PaywallServiceTests {
         #expect(service.entitlement == .lifetime)
     }
 
+    /// The cache is a plain defaults value the user can edit, and the launch reads it into
+    /// ``PaywallService/entitlement`` before StoreKit has said anything. A purchase must not carry
+    /// that guess back into the cache: a widget reads it as confirmed.
+    @Test("Never writes a cached answer back as a confirmed one")
+    func purchaseWritesOnlyWhatStoreKitConfirmed() {
+        clearCache()
+        UserDefaults.standard.set(PaywallEntitlement.lifetime.rawValue, forKey: PaywallEntitlementCache.key)
+        let service = PaywallService(configuration: config, texts: .preview)
+
+        // A verified subscription replayed by `Transaction.updates` at launch, before the first
+        // entitlement read has landed.
+        service.handleSuccessfulPurchase(productID: "yearly", subscriptionGroupID: "TEST")
+        #expect(UserDefaults.standard.string(forKey: PaywallEntitlementCache.key) == PaywallEntitlement.subscription.rawValue)
+        clearCache()
+    }
+
+    /// The other half of the rule: what StoreKit confirmed in this launch still counts, so a
+    /// replay of a lifetime purchase followed by a subscription does not downgrade the owner.
+    @Test("Keeps what StoreKit confirmed in this launch")
+    func purchaseKeepsWhatWasConfirmed() {
+        let service = makeService(initialized: false)
+        service.handleSuccessfulPurchase(productID: "lifetime", subscriptionGroupID: nil)
+        service.handleSuccessfulPurchase(productID: "yearly", subscriptionGroupID: "TEST")
+        #expect(service.entitlement == .lifetime)
+        #expect(UserDefaults.standard.string(forKey: PaywallEntitlementCache.key) == PaywallEntitlement.lifetime.rawValue)
+        clearCache()
+    }
+
     @Test("Restores the cached entitlement on launch", arguments: ["yearly", "lifetime"])
     func restoresCache(productID: String) {
         let first = makeService()

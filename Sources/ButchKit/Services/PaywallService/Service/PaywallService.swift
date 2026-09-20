@@ -188,6 +188,17 @@ public final class PaywallService {
     /// The last value handed to the cache, so an unchanged answer is not written again, see
     /// ``setEntitlement(_:)``. Starts as what the launch found, `nil` when it found nothing.
     private var lastWrittenEntitlement: PaywallEntitlement?
+    /// The strongest answer StoreKit has given since launch, `nil` until it has given one. Apart
+    /// from ``entitlement``, which starts as the cached guess: a purchase is held against this so
+    /// the guess can never be written back to the cache as confirmed, see ``setEntitlement(_:)``.
+    ///
+    /// It can be behind for a moment. `Transaction.updates` replays one purchase at a time and
+    /// ``initialize()`` starts that listener before the first entitlement read, so a user who
+    /// holds a lifetime purchase next to a subscription can have the subscription replayed first
+    /// and briefly read as a subscriber. The read in ``initialize()`` always follows with the
+    /// whole picture, and ``hasAccess`` is true throughout. A short confirmed answer is the
+    /// trade for never writing an unconfirmed one.
+    private var confirmedEntitlement: PaywallEntitlement?
     /// Whether a previous launch left an answer behind. Apart from ``isInitialized`` because a
     /// returning free user has an answer, and must be offered the subscription rather than a
     /// spinner, see ``PaywallStatus/isLoading``.
@@ -359,7 +370,9 @@ public final class PaywallService {
             let isOurs = presentedRequest != nil || pendingPurchase?.productID == productID
             subscriptionOverlapIsDue = isOurs && heldPlan?.willAutoRenew == true && texts.subscriptionOverlap != nil
         }
-        setEntitlement(max(entitlement, granted))
+        // Against what StoreKit has confirmed, never against ``entitlement``: that one starts as
+        // the cached guess, and `max` would carry the guess into the cache as a confirmed answer.
+        setEntitlement(max(confirmedEntitlement ?? .none, granted))
         if isDirectPurchase {
             // Reported as completed by the paywall. Reporting an approval too would count it twice.
             if pendingPurchase?.productID == productID { pendingPurchase = nil }
@@ -675,6 +688,9 @@ public final class PaywallService {
     /// with an answer from StoreKit, never with the cached one, so whatever reads the cache from
     /// outside, an extension or a widget, never finds a guess in it.
     private func setEntitlement(_ entitlement: PaywallEntitlement) {
+        // Before the guard below: an answer that matches what was already written still confirms
+        // it, and a purchase that follows must be held against it rather than against the cache.
+        confirmedEntitlement = entitlement
         // `@Observable` does not compare before it notifies. Without this every foreground refresh
         // would re-render every gated screen in the app and rewrite the defaults key, for an
         // answer that did not move. Compared against what was written, not against ``entitlement``,
