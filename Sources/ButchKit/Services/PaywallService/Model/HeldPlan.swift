@@ -58,17 +58,20 @@ extension HeldPlan {
             productID: transaction.productID,
             expirationDate: transaction.expirationDate,
             willAutoRenew: renewal.willAutoRenew,
-            isInTrial: Self.isTrialPeriod(transaction)
+            isInTrial: transaction.isIntroductoryOffer
         )
     }
+}
 
+extension Transaction {
+    /// Whether the transaction runs on the product's introductory offer, a free trial included.
     // Transaction.offer replaced offerType in iOS 17.2 and macOS 14.2; the package still supports
     // the releases before, so the deprecated property covers those systems.
-    private static func isTrialPeriod(_ transaction: Transaction) -> Bool {
+    var isIntroductoryOffer: Bool {
         if #available(iOS 17.2, macOS 14.2, *) {
-            transaction.offer?.type == .introductory
+            offer?.type == .introductory
         } else {
-            transaction.offerType == .introductory
+            offerType == .introductory
         }
     }
 }

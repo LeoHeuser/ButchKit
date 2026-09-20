@@ -7,9 +7,10 @@
 
 import StoreKit
 
-/// How a restore from the paywall ended. Every outcome but ``cancelled`` gets an
-/// alert, worded by the app through ``PaywallTexts``.
-enum PaywallRestoreOutcome: Sendable, Equatable {
+/// How a restore ended. On the paywall every outcome but ``cancelled`` gets an alert, worded by
+/// the app through ``PaywallTexts``; an app that runs ``PaywallService/restorePurchases()`` from
+/// its settings does the same with words of its own.
+public enum PaywallRestoreOutcome: Sendable, Equatable {
     /// A purchase is back and unlocks the app.
     case restored
     /// The App Store knows no purchase of the app's products for this account.

@@ -5,6 +5,7 @@
 //  Created by Leo Heuser on 15.09.26.
 //
 
+import OSLog
 import StoreKit
 import SwiftUI
 
@@ -22,8 +23,8 @@ struct PaywallOneTimeStore: View {
             VStack(spacing: 16) {
                 ForEach(paywall.configuration.lifetimeProductIDs, id: \.self) { productID in
                     ProductView(id: productID)
+                        .productViewStyle(PaywallProductStyle(productID: productID, logger: paywall.logger))
                 }
-                .productViewStyle(PaywallProductStyle())
             }
             .padding()
         }
@@ -34,6 +35,9 @@ struct PaywallOneTimeStore: View {
 /// subscription side: name and description, then a Buy button that carries the price, shaped like
 /// Apple's Subscribe button. Apple's own styles size the view to its content and centre it.
 private struct PaywallProductStyle: ProductViewStyle {
+    let productID: String
+    let logger: Logger
+
     func makeBody(configuration: Configuration) -> some View {
         switch configuration.state {
         case .loading:
@@ -65,10 +69,21 @@ private struct PaywallProductStyle: ProductViewStyle {
             .padding()
             .frame(maxWidth: .infinity, alignment: .leading)
             .background(.fill.tertiary, in: .rect(cornerRadius: 24, style: .continuous))
+        case .failure(let error):
+            missingProduct
+                .onAppear { logger.error("Lifetime product failed to load: id=\(productID, privacy: .public) \(error.logCode, privacy: .public)") }
         default:
-            // Unavailable or failed to load: a card without a product would be a dead button.
-            EmptyView()
+            // A wrong identifier, or a product not yet cleared for sale. Invisible on screen, so
+            // the log is the only place it shows before App Review finds it.
+            missingProduct
+                .onAppear { logger.error("Lifetime product unavailable: id=\(productID, privacy: .public)") }
         }
+    }
+
+    /// No card: one without a product would be a dead button. `EmptyView` never appears, so it
+    /// could not carry the log line.
+    private var missingProduct: some View {
+        Color.clear.frame(height: 0)
     }
 }
 

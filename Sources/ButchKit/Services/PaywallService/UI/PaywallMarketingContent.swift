@@ -10,7 +10,7 @@ import SwiftUI
 /// The swipeable marketing pages above the subscription buttons. Advances on its own every
 /// five seconds and pauses for fifteen after the user swipes.
 struct PaywallMarketingContent: View {
-    let features: [PayWallFeature]
+    let features: [PaywallFeature]
     /// The pages' fixed height: the app's `featureAreaHeight` share of the paywall, computed by
     /// ``PaywallView``. A paged TabView has no height of its own, and fixed rather than flexible
     /// the pages stay in view while the segmented control under them keeps its place.
@@ -22,6 +22,8 @@ struct PaywallMarketingContent: View {
     @State private var currentPage = 0
     @State private var isProgrammaticChange = false
     @State private var cooldownEnd: Date = .distantPast
+
+    @Environment(\.accessibilityReduceMotion) private var reduceMotion
 
     var body: some View {
         TabView(selection: $currentPage) {
@@ -45,11 +47,14 @@ struct PaywallMarketingContent: View {
                 cooldownEnd = Date().addingTimeInterval(userInteractionCooldown)
             }
         }
-        .task {
+        // Reduce Motion means no page moves unless the user moves it, and a single page has
+        // nowhere to go: neither keeps a timer running.
+        .task(id: reduceMotion) {
+            guard features.count > 1, !reduceMotion else { return }
             // Ends with the view; a page change does not restart the interval.
             while !Task.isCancelled {
                 try? await Task.sleep(for: .seconds(autoAdvanceInterval))
-                guard features.count > 1, Date() >= cooldownEnd else { continue }
+                guard Date() >= cooldownEnd else { continue }
                 withAnimation {
                     isProgrammaticChange = true
                     currentPage = (currentPage + 1) % features.count

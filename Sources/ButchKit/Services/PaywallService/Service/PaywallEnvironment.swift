@@ -7,11 +7,11 @@
 
 import SwiftUI
 
-/// Creates the service, injects it and attaches the paywall sheet at the root.
+/// Creates the service and keeps it for the life of the view, for an app that does not own one.
 struct PaywallEnvironmentModifier: ViewModifier {
     @State private var service: PaywallService
 
-    init(configuration: PaywallConfiguration, texts: PaywallTexts, features: [PayWallFeature], onEvent: ((PaywallEvent) -> Void)?) {
+    init(configuration: PaywallConfiguration, texts: PaywallTexts, features: [PaywallFeature], onEvent: ((PaywallEvent) -> Void)?) {
         let service = PaywallService(configuration: configuration, texts: texts, features: features)
         // Set before the first `initialize()`, so the launch's subscription status never goes
         // out to a listener that has not arrived yet.
@@ -20,28 +20,46 @@ struct PaywallEnvironmentModifier: ViewModifier {
     }
 
     func body(content: Content) -> some View {
+        content.modifier(PaywallRootModifier(service: service))
+    }
+}
+
+/// Injects the service, starts it and attaches the paywall sheet at the root.
+struct PaywallRootModifier: ViewModifier {
+    let service: PaywallService
+
+    @Environment(\.scenePhase) private var scenePhase
+
+    func body(content: Content) -> some View {
         content
-            .modifier(PaywallSheetModifier(isRoot: true))
+            .modifier(PaywallSheetModifier())
             .environment(service)
             .task { await service.initialize() }
+            .onChange(of: scenePhase) { _, phase in
+                // A subscription that ran out in the background produced no transaction to hear
+                // of. Not before the first check: the launch reads on its own.
+                guard phase == .active, service.isInitialized, service.configuration.refreshesOnForeground else { return }
+                Task { await service.refresh() }
+            }
     }
 }
 
 /// The paywall sheet, bound to `PaywallService.presentedRequest`.
 ///
 /// Only one instance may present at a time, or SwiftUI queues the second presentation behind the
-/// first and shows it later. A nested instance announces itself while on screen, and the root
-/// instance sees no request for as long as one is.
+/// first and shows it later. Each instance registers itself with the service while on screen, and
+/// the innermost one presents; see ``PaywallService/presents(_:)``.
 struct PaywallSheetModifier: ViewModifier {
-    let isRoot: Bool
-
     @Environment(PaywallService.self) private var paywall
+
+    /// This host's identity, fixed for the life of the view.
+    @State private var hostID = UUID()
 
     func body(content: Content) -> some View {
         content
             .sheet(
                 item: Binding(
-                    get: { isRoot && paywall.nestedSheetHosts > 0 ? nil : paywall.presentedRequest },
+                    get: { paywall.presents(hostID) ? paywall.presentedRequest : nil },
                     set: { request in
                         if request == nil { paywall.dismissPaywall() }
                     }
@@ -50,8 +68,8 @@ struct PaywallSheetModifier: ViewModifier {
             ) { request in
                 PaywallView(request: request)
             }
-            .onAppear { if !isRoot { paywall.nestedSheetHosts += 1 } }
-            .onDisappear { if !isRoot { paywall.nestedSheetHosts -= 1 } }
+            .onAppear { paywall.registerSheetHost(hostID) }
+            .onDisappear { paywall.unregisterSheetHost(hostID) }
     }
 }
 
@@ -83,10 +101,36 @@ public extension View {
     func paywallEnvironment(
         _ configuration: PaywallConfiguration,
         texts: PaywallTexts,
-        features: [PayWallFeature] = [],
+        features: [PaywallFeature] = [],
         onEvent: ((PaywallEvent) -> Void)? = nil
     ) -> some View {
         modifier(PaywallEnvironmentModifier(configuration: configuration, texts: texts, features: features, onEvent: onEvent))
+    }
+
+    /// The same for an app that owns its ``PaywallService``: one with several windows, which
+    /// would otherwise run one service per window, or one whose code outside the view hierarchy
+    /// needs the answer too. The app builds the service once, keeps it, and hands it to every
+    /// scene's root:
+    ///
+    /// ```swift
+    /// @main
+    /// struct MyApp: App {
+    ///     @State private var paywall = PaywallService(configuration: paywallConfig, texts: paywallTexts)
+    ///
+    ///     var body: some Scene {
+    ///         WindowGroup {
+    ///             RootView()
+    ///                 .paywallEnvironment(paywall)
+    ///         }
+    ///     }
+    /// }
+    /// ```
+    ///
+    /// Set ``PaywallService/onEvent`` before the first scene appears, in the app's `init`, or the
+    /// launch's subscription status goes out to nobody. In a preview, pass a service made with
+    /// `previewEntitlement:` to see what a paying user sees.
+    func paywallEnvironment(_ service: PaywallService) -> some View {
+        modifier(PaywallRootModifier(service: service))
     }
 
     /// Reinforcement for views that are themselves presented as a sheet.
@@ -97,6 +141,6 @@ public extension View {
     /// Views pushed onto a `NavigationStack` need nothing. Requires that a parent already
     /// applied `.paywallEnvironment(_:texts:features:)`.
     func paywallSheet() -> some View {
-        modifier(PaywallSheetModifier(isRoot: false))
+        modifier(PaywallSheetModifier())
     }
 }

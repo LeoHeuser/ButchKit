@@ -66,8 +66,8 @@ struct PaywallView: View {
             // button. Under the paywall's own header, `controlsUnderHeader()` replaces this with
             // the picker placed in the scroll view.
                 .subscriptionStoreControlStyle(.automatic)
-                .policyDestination(for: .privacyPolicy, url: paywall.configuration.privacyPolicyURL, title: paywall.texts.privacyPolicyTitle)
-                .policyDestination(for: .termsOfService, url: paywall.configuration.termsOfServiceURL, title: paywall.texts.termsOfServiceTitle)
+                .policyDestination(for: .privacyPolicy, url: paywall.configuration.privacyPolicyURL, title: paywall.texts.sheet.privacyPolicyTitle)
+                .policyDestination(for: .termsOfService, url: paywall.configuration.termsOfServiceURL, title: paywall.texts.sheet.termsOfServiceTitle)
             // Both handlers cover every StoreKit view inside, the lifetime products included.
                 .onInAppPurchaseStart { product in
                     paywall.report(.purchaseStarted(source: request.source, productID: product.id))
@@ -75,14 +75,14 @@ struct PaywallView: View {
                 .onInAppPurchaseCompletion { product, result in
                     await handlePurchaseCompletion(of: product, result)
                 }
-                .alert(Text(paywall.texts.purchaseFailedTitle), isPresented: $showsPurchaseFailedAlert) {
+                .alert(Text(paywall.texts.sheet.purchaseFailedTitle), isPresented: $showsPurchaseFailedAlert) {
                 } message: {
-                    Text(paywall.texts.purchaseFailedMessage)
+                    Text(paywall.texts.sheet.purchaseFailedMessage)
                 }
                 .alert(Text(restoreAlertTitle), isPresented: $showsRestoreAlert) {
                 } message: {
                     if restoreOutcome == .failed {
-                        Text(paywall.texts.restoreFailedMessage)
+                        Text(paywall.texts.sheet.restoreFailedMessage)
                     }
                 }
                 .onChange(of: showsRestoreAlert) { _, isPresented in
@@ -125,8 +125,10 @@ struct PaywallView: View {
                 }
 #endif
             // Without pages, and on the Mac, both buttons stay in the toolbar, opposite each other.
-                .sheetDismissButton(paywall.texts.dismiss)
                 .toolbar {
+                    ToolbarItem(placement: .cancellationAction) {
+                        dismissButton
+                    }
                     ToolbarItem(placement: .primaryAction) {
                         restoreButton
                     }
@@ -148,9 +150,8 @@ struct PaywallView: View {
         // no photo to protect and Apple's storefront follows the device like any other sheet.
         .preferredColorScheme(hasFeatures ? .dark : nil)
         // Outside the NavigationStack, so pushing a policy destination cannot fire this twice.
-        // This is the funnel's denominator: without it the purchase count has no reference.
         .onAppear {
-            paywall.report(.presented(source: request.source))
+            paywall.paywallDidAppear(request)
         }
     }
     
@@ -185,8 +186,8 @@ struct PaywallView: View {
             if offersBoth {
                 // Each segment reads its own title to VoiceOver, so the picker needs no label.
                 Picker(selection: $offer) {
-                    Text(paywall.texts.subscriptionTab).tag(Offer.subscription)
-                    Text(paywall.texts.oneTimeTab).tag(Offer.oneTime)
+                    Text(paywall.texts.offerTabs?.subscription ?? "").tag(Offer.subscription)
+                    Text(paywall.texts.offerTabs?.oneTime ?? "").tag(Offer.oneTime)
                 } label: {
                     EmptyView()
                 }
@@ -216,9 +217,9 @@ struct PaywallView: View {
     
     private var restoreAlertTitle: String {
         switch restoreOutcome {
-        case .restored: paywall.texts.restoreSucceededTitle
-        case .nothingToRestore: paywall.texts.nothingToRestoreTitle
-        case .failed: paywall.texts.restoreFailedTitle
+        case .restored: paywall.texts.sheet.restoreSucceededTitle
+        case .nothingToRestore: paywall.texts.sheet.nothingToRestoreTitle
+        case .failed: paywall.texts.sheet.restoreFailedTitle
         case .cancelled, nil: ""
         }
     }
@@ -227,7 +228,7 @@ struct PaywallView: View {
     /// Styled by where it sits: floating over the photos, or in the toolbar.
     private var restoreButton: some View {
         Button(action: restore) {
-            Text(paywall.texts.restorePurchases)
+            Text(paywall.texts.sheet.restorePurchases)
                 // Kept in place under the spinner, so the button keeps its size.
                 .opacity(isRestoring ? 0 : 1)
                 .overlay {
@@ -237,7 +238,7 @@ struct PaywallView: View {
                 }
         }
         .disabled(isRestoring)
-        .accessibilityLabel(paywall.texts.restorePurchases)
+        .accessibilityLabel(Text(paywall.texts.sheet.restorePurchases))
     }
 
     private func restore() {
@@ -251,17 +252,23 @@ struct PaywallView: View {
         }
     }
 
-    /// The close button over the photos, where the toolbar's would need a navigation bar. VoiceOver
-    /// reads the app's word for it; the button shows only the symbol.
-    private var closeButton: some View {
-        Button(paywall.texts.dismiss, systemImage: "xmark") {
+    /// Closes the paywall. Through the service rather than `@Environment(\.dismiss)`, so the
+    /// request is cleared with the sheet and does not come back.
+    private var dismissButton: some View {
+        Button(paywall.texts.sheet.dismiss, systemImage: "xmark") {
             paywall.dismissPaywall()
         }
-        .labelStyle(.iconOnly)
-        .closeButtonStyle()
-        .buttonBorderShape(.circle)
-        .controlSize(.large)
-        .padding()
+    }
+
+    /// The same button over the photos, where the toolbar's would need a navigation bar. VoiceOver
+    /// reads the app's word for it; the button shows only the symbol.
+    private var closeButton: some View {
+        dismissButton
+            .labelStyle(.iconOnly)
+            .closeButtonStyle()
+            .buttonBorderShape(.circle)
+            .controlSize(.large)
+            .padding()
     }
 
     private func handlePurchaseCompletion(of product: Product, _ result: Result<Product.PurchaseResult, any Error>) async {
@@ -282,12 +289,12 @@ struct PaywallView: View {
                 await transaction.finish()
                 // Only this path is a fresh purchase from the paywall, and only here is the
                 // source known. A free trial start runs through here too.
-                paywall.report(.purchaseCompleted(source: request.source, productID: product.id))
+                paywall.report(.purchaseCompleted(source: request.source, productID: product.id, isIntroductoryOffer: transaction.isIntroductoryOffer))
                 paywall.handleSuccessfulPurchase(productID: transaction.productID, subscriptionGroupID: transaction.subscriptionGroupID)
             case .pending:
                 // Ask to Buy: Apple's UI informs the user, so no app-side alert. The later
                 // approval arrives through Transaction.updates.
-                paywall.report(.purchasePending(source: request.source))
+                paywall.report(.purchasePending(source: request.source, productID: product.id))
             case .userCancelled:
                 break
             @unknown default:
@@ -297,7 +304,7 @@ struct PaywallView: View {
             // Backing out of the Apple ID or confirmation sheet is thrown, not returned as
             // `.userCancelled`. Not a failure, so neither the alert nor the funnel sees it.
             if case StoreKitError.userCancelled = error { return }
-            paywall.report(.purchaseFailed(source: request.source, reason: error.localizedDescription))
+            paywall.reportPurchaseFailure(error, source: request.source, productID: product.id)
             showsPurchaseFailedAlert = true
         }
     }
@@ -331,11 +338,11 @@ private extension View {
 
     /// Attaches a policy destination only when the app configured a URL for it.
     @ViewBuilder
-    func policyDestination(for policy: SubscriptionStorePolicyKind, url: String?, title: LocalizedStringKey) -> some View {
+    func policyDestination(for policy: SubscriptionStorePolicyKind, url: String?, title: LocalizedStringResource) -> some View {
         if let url {
             subscriptionStorePolicyDestination(for: policy) {
                 NavigationStack {
-                    GatedWebView(url, navigationTitle: title)
+                    GatedWebView(url, title: title)
                 }
             }
         } else {

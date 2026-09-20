@@ -18,26 +18,29 @@ private let macSubscriptionsURL = URL(string: "https://apps.apple.com/account/su
 /// ```swift
 /// PaywallStatusReader(source: "settings") { status in
 ///     switch status.entitlement {
+///     case .none where status.isLoading:
+///         ProgressView()
 ///     case .none:
-///         Button(paywall.texts.offer, action: status.showPaywall)
+///         Button(rowTexts.offer, action: status.showPaywall)
 ///     case .subscription, .lifetime:
 ///         LabeledContent {
 ///             if status.canManageSubscription {
-///                 Button(paywall.texts.manage, action: status.manageSubscription)
+///                 Button(rowTexts.manage, action: status.manageSubscription)
 ///             }
 ///         } label: {
-///             paywall.texts.planName(status.planName)
+///             rowTexts.planName(status.planName)
 ///             if let detail = status.detail {
-///                 paywall.texts.detail(detail)
+///                 rowTexts.detail(detail)
 ///             }
 ///         }
 ///     }
 /// }
 /// ```
 ///
-/// Belongs below the root's `View.paywallEnvironment(_:texts:features:)`. A settings screen
-/// presented as a sheet also needs `View.paywallSheet()` on its content, otherwise the paywall has
-/// nowhere to appear from. ``PaywallStatusRow`` is the plain row built on it.
+/// Belongs below the root's `View.paywallEnvironment(_:texts:features:)`. The `rowTexts` above are
+/// a ``PaywallTexts/StatusRow`` the app declares for itself, or words of its own altogether. A
+/// settings screen presented as a sheet also needs `View.paywallSheet()` on its content, otherwise
+/// the paywall has nowhere to appear from. ``PaywallStatusRow`` is the plain row built on this.
 public struct PaywallStatusReader<Content: View>: View {
     private let source: String
     private let content: (PaywallStatus) -> Content
@@ -67,6 +70,8 @@ public struct PaywallStatusReader<Content: View>: View {
         // `entitlement` rather than the loaded status, so the row matches what the app unlocks.
         let status = PaywallStatus(
             entitlement: paywall.entitlement,
+            isInitialized: paywall.isInitialized,
+            hasCachedEntitlement: paywall.hasCachedEntitlement,
             heldPlan: heldPlan,
             lifetimeProductID: lifetimeProductID,
             loadedName: loadedName,

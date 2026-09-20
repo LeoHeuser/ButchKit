@@ -48,13 +48,23 @@ public struct PaywallConfiguration: Sendable, Equatable {
     /// (the whole sheet, which pushes the purchases out of view). Values outside are clamped.
     /// The larger it is, the sooner a short screen needs a scroll to reach the Subscribe button.
     public let featureAreaHeight: Double
+    /// The app group the last confirmed entitlement is cached in, for an app with a widget, an
+    /// extension or an App Intent that needs the answer in another process; they read it through
+    /// ``PaywallEntitlementCache``. `nil` keeps it in the app's own defaults.
+    public let appGroupID: String?
+    /// Whether the root modifier reads the entitlements again each time the app comes to the
+    /// foreground, so a subscription that ran out in the background locks the app at once. Costs
+    /// one local StoreKit read; turn it off only for an app that refreshes on a rhythm of its own.
+    public let refreshesOnForeground: Bool
 
     public init(
         subscriptionGroupID: String? = nil,
         lifetimeProductIDs: [String] = [],
         privacyPolicyURL: String? = nil,
         termsOfServiceURL: String? = nil,
-        featureAreaHeight: Double = 0.62
+        featureAreaHeight: Double = 0.62,
+        appGroupID: String? = nil,
+        refreshesOnForeground: Bool = true
     ) {
         assert(subscriptionGroupID != nil || !lifetimeProductIDs.isEmpty, "A paywall needs a subscription group, lifetime products, or both")
         self.featureAreaHeight = min(max(featureAreaHeight, 0), 1)
@@ -62,6 +72,8 @@ public struct PaywallConfiguration: Sendable, Equatable {
         self.lifetimeProductIDs = lifetimeProductIDs
         self.privacyPolicyURL = privacyPolicyURL
         self.termsOfServiceURL = termsOfServiceURL
+        self.appGroupID = appGroupID
+        self.refreshesOnForeground = refreshesOnForeground
     }
 
     /// Whether the paywall shows the privacy policy and terms buttons. StoreKit shows both or

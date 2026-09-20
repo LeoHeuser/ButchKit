@@ -12,6 +12,11 @@ import Foundation
 public struct PaywallStatus {
     /// Which row to show: the offer, the subscription or the lifetime purchase.
     public let entitlement: PaywallEntitlement
+    /// `true` while nothing is known at all: no entitlement cached and StoreKit still to answer,
+    /// the first moment after an install. Show a spinner rather than the offer, or a subscriber who
+    /// just reinstalled is asked to subscribe. A returning free user has a cached answer, so this
+    /// stays `false` and the offer shows at once.
+    public let isLoading: Bool
     /// The name of the product held, as App Store Connect spells it and localized per storefront.
     /// `nil` until it has loaded, when it cannot load, and without an entitlement, so the app shows
     /// its own fallback name then.
@@ -39,6 +44,8 @@ public struct PaywallStatus {
     /// change never shows the old plan's name.
     init(
         entitlement: PaywallEntitlement,
+        isInitialized: Bool,
+        hasCachedEntitlement: Bool,
         heldPlan: HeldPlan?,
         lifetimeProductID: String?,
         loadedName: (productID: String, name: String)?,
@@ -69,6 +76,7 @@ public struct PaywallStatus {
         }
         self.productID = productID
         self.entitlement = entitlement
+        self.isLoading = entitlement == .none && !isInitialized && !hasCachedEntitlement
         self.planName = loadedName.flatMap { $0.productID == productID ? $0.name : nil }
         self.showPaywall = showPaywall
         self.manageSubscription = manageSubscription

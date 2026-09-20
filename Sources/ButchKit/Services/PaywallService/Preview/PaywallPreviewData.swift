@@ -10,22 +10,22 @@ import SwiftUI
 #if DEBUG
 extension PaywallTexts {
     /// Plain English in place of keys: a package has no catalog, so a preview shows whatever it
-    /// is given. Computed for the same reason as the pages below: the closures are not
-    /// `Sendable`, which a static constant would require.
-    static var preview: PaywallTexts {
-        PaywallTexts(
+    /// is given.
+    static let preview = PaywallTexts(
+        sheet: Sheet(
             dismiss: "Close",
             privacyPolicyTitle: "Privacy Policy",
             termsOfServiceTitle: "Terms of Service",
             purchaseFailedTitle: "The purchase didn't go through",
             purchaseFailedMessage: "Nothing was charged. Try again in a moment.",
-            subscriptionTab: "Subscription",
-            oneTimeTab: "One-Time Purchase",
             restorePurchases: "Restore Purchases",
             restoreSucceededTitle: "Purchase Restored",
             nothingToRestoreTitle: "No Purchase to Restore",
             restoreFailedTitle: "Restore Failed",
-            restoreFailedMessage: "Your purchase could not be restored. Check your internet connection and try again.",
+            restoreFailedMessage: "Your purchase could not be restored. Check your internet connection and try again."
+        ),
+        offerTabs: OfferTabs(subscription: "Subscription", oneTime: "One-Time Purchase"),
+        statusRow: StatusRow(
             offer: "See subscription plans",
             offerLabel: "See subscription plans",
             offerHint: "Opens the subscription offer.",
@@ -37,7 +37,7 @@ extension PaywallTexts {
             ends: { Text("Ends on \($0, format: .dateTime.day().month().year())") },
             billingIssue: "Payment didn't go through."
         )
-    }
+    )
 }
 
 extension ImageResource {
@@ -48,62 +48,50 @@ extension ImageResource {
     }
 }
 
-extension PayWallFeature {
+extension PaywallFeature {
     /// The four shapes a page can take. Every preview in the module draws from these, so the
-    /// sample copy lives in one place. Computed rather than stored: `PayWallFeature` is not
-    /// `Sendable`, which a static constant would require.
-    static var previewFull: PayWallFeature {
-        PayWallFeature(
-            title: "Write without limits",
-            description: "Unlimited scripts, scenes and characters.",
-            image: .previewPhoto(1)
-        )
-    }
+    /// sample copy lives in one place.
+    static let previewFull = PaywallFeature(
+        title: "Write without limits",
+        description: "Unlimited scripts, scenes and characters.",
+        image: .previewPhoto(1)
+    )
 
-    static var previewWithoutDescription: PayWallFeature {
-        PayWallFeature(title: "Everywhere you are", image: .previewPhoto(2))
-    }
+    static let previewWithoutDescription = PaywallFeature(title: "Everywhere you are", image: .previewPhoto(2))
 
-    static var previewWithoutPhoto: PayWallFeature {
-        PayWallFeature(
-            title: "Export like a pro",
-            description: "Industry-standard PDF and Final Draft files in one tap."
-        )
-    }
+    static let previewWithoutPhoto = PaywallFeature(
+        title: "Export like a pro",
+        description: "Industry-standard PDF and Final Draft files in one tap."
+    )
 
-    static var previewTitleOnly: PayWallFeature {
-        PayWallFeature(title: "One subscription, every device")
-    }
+    static let previewTitleOnly = PaywallFeature(title: "One subscription, every device")
 }
 
-extension [PayWallFeature] {
+extension [PaywallFeature] {
     /// Three pages with photos, the case an app ships.
-    static var previewFeatures: [PayWallFeature] {
-        [
-            .previewFull,
-            PayWallFeature(
-                title: "Everywhere you are",
-                description: "Your work stays in sync across iPhone, iPad and Mac.",
-                image: .previewPhoto(2)
-            ),
-            PayWallFeature(
-                title: "Export like a pro",
-                description: "Industry-standard PDF and Final Draft files in one tap.",
-                image: .previewPhoto(3)
-            )
-        ]
-    }
+    static let previewFeatures: [PaywallFeature] = [
+        .previewFull,
+        PaywallFeature(
+            title: "Everywhere you are",
+            description: "Your work stays in sync across iPhone, iPad and Mac.",
+            image: .previewPhoto(2)
+        ),
+        PaywallFeature(
+            title: "Export like a pro",
+            description: "Industry-standard PDF and Final Draft files in one tap.",
+            image: .previewPhoto(3)
+        )
+    ]
 
     /// The same three pages without photos, for the text-only layout.
-    static var previewFeaturesWithoutPhotos: [PayWallFeature] {
-        previewFeatures.map { PayWallFeature(title: $0.title, description: $0.description) }
-    }
+    static let previewFeaturesWithoutPhotos: [PaywallFeature] = Self.previewFeatures
+        .map { PaywallFeature(title: $0.title, description: $0.description) }
 
     /// All four page shapes in one swipeable set. Swipe through it to see how the two layouts
     /// sit next to each other.
-    static var previewFeaturesMixed: [PayWallFeature] {
-        [.previewFull, .previewWithoutDescription, .previewWithoutPhoto, .previewTitleOnly]
-    }
+    static let previewFeaturesMixed: [PaywallFeature] = [
+        .previewFull, .previewWithoutDescription, .previewWithoutPhoto, .previewTitleOnly
+    ]
 }
 
 extension View {

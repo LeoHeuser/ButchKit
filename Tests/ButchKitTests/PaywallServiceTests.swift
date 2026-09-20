@@ -164,19 +164,23 @@ struct PaywallServiceTests {
     private let config = PaywallConfiguration(subscriptionGroupID: "TEST", lifetimeProductIDs: ["lifetime", "supporter"])
 
     /// The cache survives between test runs in the host's defaults; every test starts unsubscribed.
-    private func makeService() -> PaywallService {
+    /// Past its first entitlement check unless told otherwise, as an app is by the time anyone
+    /// taps anything.
+    private func makeService(initialized: Bool = true) -> PaywallService {
         clearCache()
-        return PaywallService(configuration: config, texts: .preview)
+        let service = PaywallService(configuration: config, texts: .preview)
+        if initialized { _ = service.markInitialized() }
+        return service
     }
 
     private func clearCache() {
-        UserDefaults.standard.removeObject(forKey: PaywallService.cacheKey)
-        UserDefaults.standard.removeObject(forKey: PaywallService.legacyCacheKey)
+        UserDefaults.standard.removeObject(forKey: PaywallEntitlementCache.key)
+        UserDefaults.standard.removeObject(forKey: PaywallEntitlementCache.legacyKey)
     }
 
     @Test("Starts uninitialized with its configuration")
     func initialState() {
-        let service = makeService()
+        let service = makeService(initialized: false)
         #expect(!service.isInitialized)
         #expect(service.entitlement == .none)
         #expect(!service.hasAccess)
@@ -296,10 +300,219 @@ struct PaywallServiceTests {
     @Test("Reads the Bool cache of earlier versions as a subscription")
     func restoresLegacyCache() {
         clearCache()
-        UserDefaults.standard.set(true, forKey: PaywallService.legacyCacheKey)
+        UserDefaults.standard.set(true, forKey: PaywallEntitlementCache.legacyKey)
         let service = PaywallService(configuration: config, texts: .preview)
         #expect(service.entitlement == .subscription)
         clearCache()
+    }
+
+    // MARK: Refresh
+
+    /// A `.task` that reads on foreground is cancelled when the user swipes to the app switcher.
+    /// A cancelled read of StoreKit ends early and empty, which must never reach the entitlement.
+    @Test("Finishes a refresh whose caller was cancelled")
+    func refreshSurvivesCancellation() async {
+        let service = makeService()
+        let caller = Task {
+            await service.refresh { _ in
+                await Task.yield()
+                // What StoreKit's sequence does under cancellation: it ends before its first element.
+                return PaywallEntitlementSnapshot(strongest: Task.isCancelled ? .none : .subscription)
+            }
+        }
+        caller.cancel()
+        await caller.value
+        #expect(service.entitlement == .subscription)
+        clearCache()
+    }
+
+    @Test("Applies overlapping refreshes in the order they were asked for")
+    func refreshesInOrder() async {
+        let service = makeService()
+        async let slow: Void = service.refresh { _ in
+            try? await Task.sleep(for: .milliseconds(50))
+            return PaywallEntitlementSnapshot(strongest: .subscription)
+        }
+        // Started second and answered at once, yet it must land last.
+        async let fast: Void = service.refresh { _ in PaywallEntitlementSnapshot(strongest: .lifetime) }
+        _ = await (slow, fast)
+        #expect(service.entitlement == .lifetime)
+        clearCache()
+    }
+
+    /// StoreKit lists a fresh purchase a moment late, right when the app returns from the payment
+    /// sheet and reads on foreground.
+    @Test("Keeps a fresh purchase that StoreKit does not list yet")
+    func refreshKeepsFreshPurchase() async {
+        let service = makeService()
+        service.handleSuccessfulPurchase(productID: "yearly", subscriptionGroupID: "TEST")
+        await service.refresh(currentEntitlements: entitlements(.none))
+        #expect(service.entitlement == .subscription)
+
+        service.purchaseGracePeriod = .zero
+        await service.refresh(currentEntitlements: entitlements(.none))
+        #expect(service.entitlement == .none)
+    }
+
+    // MARK: Verified
+
+    @Test("Knows no verified entitlement until StoreKit has answered")
+    func verifiedEntitlement() async {
+        let first = makeService()
+        first.handleSuccessfulPurchase(productID: "yearly", subscriptionGroupID: "TEST")
+
+        let second = PaywallService(configuration: config, texts: .preview)
+        #expect(second.hasAccess)
+        #expect(second.verifiedEntitlement == nil)
+        #expect(!second.hasVerifiedAccess)
+
+        second.purchaseGracePeriod = .zero
+        await second.refresh(currentEntitlements: entitlements(.lifetime))
+        _ = second.markInitialized()
+        #expect(second.verifiedEntitlement == .lifetime)
+        #expect(second.hasVerifiedAccess)
+        clearCache()
+    }
+
+    /// The cache is a defaults value anyone can edit. It may draw the interface, never open a gate.
+    @Test("Holds a requirement until StoreKit has answered, then shows the paywall")
+    func requireWaitsThenPresents() async {
+        clearCache()
+        UserDefaults.standard.set(PaywallEntitlement.lifetime.rawValue, forKey: PaywallEntitlementCache.key)
+        let service = PaywallService(configuration: config, texts: .preview)
+        var ran = false
+        service.require(source: "export") { ran = true }
+        #expect(!ran)
+        #expect(service.presentedRequest == nil)
+
+        await service.refresh(currentEntitlements: entitlements(.none))
+        _ = service.markInitialized()
+        #expect(!ran)
+        #expect(service.presentedRequest?.source == "export")
+    }
+
+    /// A subscriber on a fresh install has nothing cached and must not be shown a paywall.
+    @Test("Holds a requirement until StoreKit has answered, then runs it")
+    func requireWaitsThenRuns() async {
+        let service = makeService(initialized: false)
+        var ran = false
+        service.require(source: "export") { ran = true }
+        await service.refresh(currentEntitlements: entitlements(.subscription))
+        _ = service.markInitialized()
+        #expect(ran)
+        #expect(service.presentedRequest == nil)
+        clearCache()
+    }
+
+    @Test("Initializes once, however many scenes ask")
+    func marksInitializedOnce() {
+        let service = makeService(initialized: false)
+        #expect(service.markInitialized())
+        #expect(!service.markInitialized())
+    }
+
+    // MARK: Presentation
+
+    /// Asked for from inside a sheet without `.paywallSheet()`, the request would otherwise bring
+    /// the paywall up once that sheet closes, out of nowhere.
+    @Test("Gives up on a request no sheet picked up")
+    func dropsUnshownRequest() async throws {
+        let service = makeService()
+        service.presentationTimeout = .milliseconds(20)
+        var ran = false
+        service.require(source: "settings") { ran = true }
+        try await Task.sleep(for: .milliseconds(200))
+        #expect(service.presentedRequest == nil)
+        service.handleSuccessfulPurchase(productID: "yearly", subscriptionGroupID: "TEST")
+        service.paywallDidDismiss()
+        #expect(!ran)
+        clearCache()
+    }
+
+    @Test("Keeps a request whose sheet came up")
+    func keepsShownRequest() async throws {
+        let service = makeService()
+        service.presentationTimeout = .milliseconds(20)
+        service.present(source: "settings")
+        service.paywallDidAppear(try #require(service.presentedRequest))
+        try await Task.sleep(for: .milliseconds(200))
+        #expect(service.presentedRequest?.source == "settings")
+    }
+
+    /// SwiftUI presents one sheet per view, so the paywall has to come from the sheet that is
+    /// already up rather than from the root underneath it.
+    @Test("Lets the innermost sheet host present")
+    func innermostHostPresents() {
+        let service = makeService()
+        let root = UUID()
+        let settingsSheet = UUID()
+        service.registerSheetHost(root)
+        #expect(service.presents(root))
+
+        service.registerSheetHost(settingsSheet)
+        #expect(service.presents(settingsSheet))
+        #expect(!service.presents(root))
+
+        service.unregisterSheetHost(settingsSheet)
+        #expect(service.presents(root))
+    }
+
+    /// SwiftUI repeats an appearance without its disappearance when it rebuilds a view. Counted
+    /// rather than named, a host would be registered twice and never fully removed, leaving the
+    /// paywall silent for the rest of the session.
+    @Test("Registers a sheet host once, however often it appears")
+    func hostRegistrationIsIdempotent() {
+        let service = makeService()
+        let root = UUID()
+        let sheet = UUID()
+        service.registerSheetHost(root)
+        service.registerSheetHost(sheet)
+        service.registerSheetHost(sheet)
+
+        service.unregisterSheetHost(sheet)
+        #expect(service.presents(root))
+    }
+
+    // MARK: Cache
+
+    // In this suite because it is serialized: these tests and the service share one defaults key.
+    private let suiteName = "design.heuser.ButchKit.tests.paywallCache"
+
+    private func clearGroup() {
+        UserDefaults.standard.removeObject(forKey: PaywallEntitlementCache.key)
+        UserDefaults.standard.removeObject(forKey: PaywallEntitlementCache.legacyKey)
+        UserDefaults(suiteName: suiteName)?.removePersistentDomain(forName: suiteName)
+    }
+
+    /// `nil`, not `.none`: an extension must be able to tell "free" from "never asked".
+    @Test("Knows nothing until something was written")
+    func emptyIsUnknown() {
+        clearGroup()
+        #expect(PaywallEntitlementCache(appGroupID: suiteName).entitlement == nil)
+        #expect(PaywallEntitlementCache().entitlement == nil)
+    }
+
+    @Test("Writes to the group and reads it back")
+    func roundTrip() {
+        clearGroup()
+        let cache = PaywallEntitlementCache(appGroupID: suiteName)
+        cache.write(.lifetime)
+        #expect(cache.entitlement == .lifetime)
+        #expect(UserDefaults.standard.string(forKey: PaywallEntitlementCache.key) == nil)
+        clearGroup()
+    }
+
+    /// An app that adopts a group in an update keeps what it cached before, so its subscribers
+    /// see no paywall flash on the first launch after it.
+    @Test("Falls back to the standard defaults until the group has an answer")
+    func adoptsStandardCache() {
+        clearGroup()
+        PaywallEntitlementCache().write(.subscription)
+        let cache = PaywallEntitlementCache(appGroupID: suiteName)
+        #expect(cache.entitlement == .subscription)
+        cache.write(.none)
+        #expect(cache.entitlement == PaywallEntitlement.none)
+        clearGroup()
     }
 
     // MARK: Restore
@@ -399,10 +612,14 @@ struct PaywallStatusTests {
     private func status(
         _ entitlement: PaywallEntitlement,
         renewing: Bool = true,
-        loadedName: (productID: String, name: String)? = nil
+        loadedName: (productID: String, name: String)? = nil,
+        isInitialized: Bool = true,
+        hasCachedEntitlement: Bool = false
     ) -> PaywallStatus {
         PaywallStatus(
             entitlement: entitlement,
+            isInitialized: isInitialized,
+            hasCachedEntitlement: hasCachedEntitlement,
             heldPlan: HeldPlan(state: .subscribed, productID: "yearly", expirationDate: date, willAutoRenew: renewing),
             lifetimeProductID: "lifetime",
             loadedName: loadedName,
@@ -430,6 +647,16 @@ struct PaywallStatusTests {
         #expect(status(.subscription).detail == .renews(date))
         #expect(status(.lifetime).detail == nil)
         #expect(status(.none).detail == nil)
+    }
+
+    /// A subscriber who just reinstalled has nothing cached, and must not be offered a plan. A
+    /// returning free user does have a cached answer, and must not be left on a spinner.
+    @Test("Is loading only while nothing is cached and StoreKit has not answered")
+    func loading() {
+        #expect(status(.none, isInitialized: false).isLoading)
+        #expect(!status(.none).isLoading)
+        #expect(!status(.subscription, isInitialized: false).isLoading)
+        #expect(!status(.none, isInitialized: false, hasCachedEntitlement: true).isLoading)
     }
 
     @Test("Offers management to a lifetime owner only while a subscription still renews")
@@ -500,5 +727,37 @@ struct SubscriptionPhaseTests {
     func paymentProblem(state: Product.SubscriptionInfo.RenewalState) {
         let plan = HeldPlan(state: state, productID: "yearly", expirationDate: nil, willAutoRenew: true)
         #expect(plan.phase == nil)
+    }
+}
+
+@Suite("PaywallEvent")
+struct PaywallEventTests {
+    /// Apps forward these to their analytics as they are; a renamed signal or key splits a chart
+    /// into an old and a new series, so the exact strings are pinned here.
+    @Test("Names every event and its parameters with stable strings")
+    func stableNames() {
+        let events: [(PaywallEvent, String, [String: String])] = [
+            (.presented(source: "s"), "paywall.presented", ["source": "s"]),
+            (.purchaseStarted(source: "s", productID: "p"), "paywall.purchaseStarted", ["source": "s", "productID": "p"]),
+            (.purchaseCompleted(source: "s", productID: "p", isIntroductoryOffer: true), "paywall.purchaseCompleted", ["source": "s", "productID": "p", "isIntroductoryOffer": "true"]),
+            (.purchasePending(source: "s", productID: "p"), "paywall.purchasePending", ["source": "s", "productID": "p"]),
+            (.purchaseFailed(source: "s", productID: "p", reason: .network), "paywall.purchaseFailed", ["source": "s", "productID": "p", "reason": "network"]),
+            (.verificationFailed, "paywall.verificationFailed", [:]),
+            (.subscriptionStatus(phase: .trialCanceled, productID: "p"), "paywall.subscriptionStatus", ["phase": "trialCanceled", "productID": "p"])
+        ]
+        for (event, name, parameters) in events {
+            #expect(event.name == name)
+            #expect(event.parameters == parameters)
+        }
+    }
+
+    @Test("Sorts a purchase error into its kind")
+    func failureKinds() {
+        #expect(PaywallPurchaseFailure(StoreKitError.networkError(URLError(.notConnectedToInternet))) == .network)
+        #expect(PaywallPurchaseFailure(Product.PurchaseError.purchaseNotAllowed) == .purchaseNotAllowed)
+        #expect(PaywallPurchaseFailure(Product.PurchaseError.invalidOfferIdentifier) == .invalidOffer)
+        // Not an offer problem, so it is not charted as one.
+        #expect(PaywallPurchaseFailure(Product.PurchaseError.invalidQuantity) == .unknown)
+        #expect(PaywallPurchaseFailure(SomeError()) == .unknown)
     }
 }

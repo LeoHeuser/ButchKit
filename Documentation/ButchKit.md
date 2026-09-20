@@ -17,7 +17,8 @@ Prose that applies across the library. These are binding for how we build, not d
 ## Localization
 
 ButchKit ships no strings and names no keys. Every text a ButchKit view shows is handed in by the
-app: as a `LocalizedStringKey`, as a `String` the app resolved from its own table, or as a
+app: as a `LocalizedStringKey` (a `LocalizedStringResource` in the paywall, whose values are
+`Sendable`), as a `String` the app resolved from its own table, or as a
 closure that builds a `Text`. The key is therefore written in the app's code, where Xcode finds
 it and extracts it into the app's catalog like any other string. The app owns the wording, the
 keys and the translations, nothing is added to a catalog by hand, and a ButchKit surface speaks
@@ -66,13 +67,17 @@ Every type is documented in code. This is the map.
 
 `Sources/ButchKit/Services/PaywallService/`
 
-- `View.paywallEnvironment(_:texts:features:)` — root-level integration. Creates the service, injects it and attaches the paywall sheet.
-- `PaywallService` — `hasAccess` and `entitlement`, fed by StoreKit 2, plus `present(source:)` and `require(source:_:)` to show the paywall from anywhere.
-- `PaywallConfiguration` — the subscription group and the lifetime products, at least one of the two, policy URLs and the marketing pages' height.
+- `View.paywallEnvironment(_:texts:features:)` — root-level integration. Creates the service, injects it, refreshes on foreground and attaches the paywall sheet.
+- `View.paywallEnvironment(_:)` — the same for a `PaywallService` the app owns: several windows, or code outside the views that needs the answer.
+- `PaywallService` — `hasAccess` and `entitlement`, fed by StoreKit 2, `verifiedEntitlement` once StoreKit has confirmed them, `present(source:)` and `require(source:_:)` to show the paywall from anywhere, and `restorePurchases()` for a settings row.
+- `PaywallConfiguration` — the subscription group and the lifetime products, at least one of the two, policy URLs, the marketing pages' height and the app group for the cache.
+- `PaywallEntitlementCache` — the last confirmed entitlement, readable from a widget, an extension or an App Intent.
 - `PaywallEntitlement` — `none`, `subscription` or `lifetime`.
-- `PaywallTexts` — every word the paywall and the settings row show, handed in by the app.
-- `PayWallFeature` — one marketing page: title, description, image.
-- `PaywallEvent` — the funnel, forwarded through `PaywallService.onEvent` to the app's analytics.
+- `PaywallTexts` — every word the paywall and the settings row show, handed in by the app in three groups: `Sheet`, `OfferTabs`, `StatusRow`.
+- `PaywallFeature` — one marketing page: title, description, image.
+- `PaywallEvent` — the funnel, forwarded through `PaywallService.onEvent` to the app's analytics, each with a stable `name` and `parameters`.
+- `PaywallPurchaseFailure` — the kind of a failed purchase, what `PaywallEvent.purchaseFailed` carries in place of the error's text.
+- `PaywallRestoreOutcome` — how `restorePurchases()` ended.
 - `SubscriptionPhase` — trial or paid, renewing or canceled: the once-per-launch snapshot `PaywallEvent.subscriptionStatus` carries.
 - `PaywallRequest` — the presentation in flight.
 - `PaywallStatusRow` — the settings row: plan name, renewal date and management; the lifetime purchase, with management while a subscription still renews; or the offer.

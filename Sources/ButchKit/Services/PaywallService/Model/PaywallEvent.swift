@@ -7,20 +7,18 @@
 
 /// The paywall funnel, as it happens.
 ///
-/// ButchKit has no analytics dependency. Assign `PaywallService.onEvent` once and forward each
-/// event to whatever the app uses:
+/// ButchKit has no analytics dependency. Hand `onEvent` to the root modifier and forward each
+/// event to whatever the app uses. Every event says what it is called and what it carries, so
+/// the bridge is one line and an event added by a later ButchKit flows through it untouched:
 ///
 /// ```swift
-/// paywall.onEvent = { event in
-///     switch event {
-///     case .presented(let source):
-///         TelemetryDeck.signal("paywall.presented", parameters: ["paywall.trigger": source])
-///     case .purchaseCompleted(let source, let productID):
-///         TelemetryDeck.signal("paywall.completed", parameters: ["paywall.trigger": source, "product": productID])
-///     // …
-///     }
+/// .paywallEnvironment(paywallConfig, texts: paywallTexts) { event in
+///     TelemetryDeck.signal(event.name, parameters: event.parameters)
 /// }
 /// ```
+///
+/// An app that wants its own names switches over the cases instead, with a `default` that falls
+/// back to ``name``: without one, every new case stops the app from compiling.
 ///
 /// `source` is the app's own name for where the user hit the lock ("newScript", "settings"), the
 /// value passed to `PaywallService.present(source:)` or `require(source:_:)`. `productID` is the
@@ -33,12 +31,14 @@ public enum PaywallEvent: Sendable, Equatable {
     case purchaseStarted(source: String, productID: String)
     /// A fresh purchase from the paywall went through. A free trial start counts too. Restores
     /// and renewals arrive through `Transaction.updates` and are deliberately not reported here.
-    case purchaseCompleted(source: String, productID: String)
+    /// `isIntroductoryOffer` tells a trial start from a paid purchase, so a funnel does not count
+    /// every free week as revenue.
+    case purchaseCompleted(source: String, productID: String, isIntroductoryOffer: Bool)
     /// Ask to Buy: the purchase waits for approval. The later approval never reaches the paywall.
-    case purchasePending(source: String)
-    /// The purchase failed. `reason` is the error's localized description. A user backing out
-    /// of the App Store sheet is not a failure and is not reported.
-    case purchaseFailed(source: String, reason: String)
+    case purchasePending(source: String, productID: String)
+    /// The purchase failed, and of what kind. A user backing out of the App Store sheet is not a
+    /// failure and is not reported.
+    case purchaseFailed(source: String, productID: String, reason: PaywallPurchaseFailure)
     /// A transaction from the App Store failed verification and was not finished.
     case verificationFailed
     /// Where an active subscriber stands, reported once per launch after the first entitlement
@@ -47,4 +47,36 @@ public enum PaywallEvent: Sendable, Equatable {
     /// conversion. Users without a running subscription, lifetime owners included, report nothing,
     /// so a chart of it compares active subscribers only.
     case subscriptionStatus(phase: SubscriptionPhase, productID: String)
+
+    /// What the event is called, for an analytics signal. Stable across releases.
+    public var name: String {
+        switch self {
+        case .presented: "paywall.presented"
+        case .purchaseStarted: "paywall.purchaseStarted"
+        case .purchaseCompleted: "paywall.purchaseCompleted"
+        case .purchasePending: "paywall.purchasePending"
+        case .purchaseFailed: "paywall.purchaseFailed"
+        case .verificationFailed: "paywall.verificationFailed"
+        case .subscriptionStatus: "paywall.subscriptionStatus"
+        }
+    }
+
+    /// What the event carries, under stable keys: `source`, `productID`, `isIntroductoryOffer`,
+    /// `reason` and `phase`, each only on the events that have it.
+    public var parameters: [String: String] {
+        switch self {
+        case .presented(let source):
+            ["source": source]
+        case .purchaseStarted(let source, let productID), .purchasePending(let source, let productID):
+            ["source": source, "productID": productID]
+        case .purchaseCompleted(let source, let productID, let isIntroductoryOffer):
+            ["source": source, "productID": productID, "isIntroductoryOffer": String(isIntroductoryOffer)]
+        case .purchaseFailed(let source, let productID, let reason):
+            ["source": source, "productID": productID, "reason": reason.rawValue]
+        case .verificationFailed:
+            [:]
+        case .subscriptionStatus(let phase, let productID):
+            ["phase": phase.rawValue, "productID": productID]
+        }
+    }
 }

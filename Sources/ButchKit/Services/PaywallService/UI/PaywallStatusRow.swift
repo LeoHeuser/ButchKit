@@ -40,27 +40,37 @@ public struct PaywallStatusRow: View {
     }
 
     public var body: some View {
-        PaywallStatusReader(source: source) { status in
-            switch status.entitlement {
-            case .none:
-                Button(paywall.texts.offer, action: status.showPaywall)
-                    .accessibilityLabel(paywall.texts.offerLabel)
-                    .accessibilityHint(paywall.texts.offerHint)
-            case .subscription, .lifetime:
-                LabeledContent {
-                    if status.canManageSubscription {
-                        Button(paywall.texts.manage, action: status.manageSubscription)
-                            .accessibilityLabel(paywall.texts.manageLabel)
-                            .accessibilityHint(paywall.texts.manageHint)
-                    }
-                } label: {
-                    paywall.texts.planName(status.planName)
+        if let texts = paywall.texts.statusRow {
+            PaywallStatusReader(source: source) { status in
+                switch status.entitlement {
+                case .none where status.isLoading:
+                    // Nothing cached and StoreKit still to answer: a subscriber who just
+                    // reinstalled must not be offered a subscription.
+                    ProgressView()
+                        .frame(maxWidth: .infinity)
+                case .none:
+                    Button(texts.offer, action: status.showPaywall)
+                        .accessibilityLabel(texts.offerLabel)
+                        .accessibilityHint(texts.offerHint)
+                case .subscription, .lifetime:
+                    LabeledContent {
+                        if status.canManageSubscription {
+                            Button(texts.manage, action: status.manageSubscription)
+                                .accessibilityLabel(texts.manageLabel)
+                                .accessibilityHint(texts.manageHint)
+                        }
+                    } label: {
+                        texts.planName(status.planName)
 
-                    if let detail = status.detail {
-                        paywall.texts.detail(detail)
+                        if let detail = status.detail {
+                            texts.detail(detail)
+                        }
                     }
                 }
             }
+        } else {
+            Color.clear.frame(height: 0)
+                .onAppear { paywall.logger.fault("PaywallStatusRow has no words: PaywallTexts.statusRow is missing") }
         }
     }
 }
@@ -68,6 +78,14 @@ public struct PaywallStatusRow: View {
 // Guarded because the subscribed previews read a DEBUG-only helper.
 #if DEBUG
 #Preview("Unsubscribed") {
+    Form {
+        PaywallStatusRow(source: "preview")
+    }
+    .paywallEnvironment(.preview(.oneSubscription, entitlement: .none))
+}
+
+// Nothing cached and no answer yet, as on the first launch after an install.
+#Preview("Loading") {
     Form {
         PaywallStatusRow(source: "preview")
     }
@@ -80,7 +98,7 @@ public struct PaywallStatusRow: View {
     Form {
         PaywallStatusRow(source: "preview")
     }
-    .environment(PaywallService.preview(.oneSubscription, entitlement: .subscription))
+    .paywallEnvironment(.preview(.oneSubscription, entitlement: .subscription))
 }
 
 // The product's name loads from `ButchKitPreview.storekit`; until then, the fallback name.
@@ -88,6 +106,6 @@ public struct PaywallStatusRow: View {
     Form {
         PaywallStatusRow(source: "preview")
     }
-    .environment(PaywallService.preview(.subscriptionsAndOneTimePurchases, entitlement: .lifetime))
+    .paywallEnvironment(.preview(.subscriptionsAndOneTimePurchases, entitlement: .lifetime))
 }
 #endif

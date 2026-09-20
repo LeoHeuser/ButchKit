@@ -64,7 +64,7 @@ extension PaywallService {
 extension PaywallView {
     /// The whole paywall over one preview store, with the photo pages unless told otherwise. Pass
     /// `[]` for a paywall without pages.
-    static func preview(_ store: PaywallPreviewStore, features: [PayWallFeature] = .previewFeatures) -> some View {
+    static func preview(_ store: PaywallPreviewStore, features: [PaywallFeature] = .previewFeatures) -> some View {
         PaywallView(request: PaywallRequest(source: "preview"))
             .environment(PaywallService(configuration: store.configuration, texts: .preview, features: features))
     }

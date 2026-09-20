@@ -13,7 +13,7 @@ import SwiftUI
 /// bottom, where the photo has faded out and the text stays legible. Without one there is nothing
 /// to sit below, so the text centres rather than leave an empty half above it.
 struct PaywallFeaturePage: View {
-    let feature: PayWallFeature
+    let feature: PaywallFeature
 
     private var hasPhoto: Bool { feature.image != nil }
 
