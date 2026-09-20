@@ -61,7 +61,9 @@ public struct GatedWebView: View {
     let useAppLanguage: Bool
     let allowsJavaScript: Bool
     let cachePolicy: URLRequest.CachePolicy
-    let navigationTitle: LocalizedStringKey?
+    /// A `var` only so the `LocalizedStringResource` initializer can set it after delegating, and
+    /// the defaults stay written once.
+    var navigationTitle: Text?
     let allowsBrowsing: WebBrowsing
 
     @State private var pageTitle: String = ""
@@ -77,13 +79,20 @@ public struct GatedWebView: View {
         allowsBrowsing: WebBrowsing = .onSameDomain
     ) {
         self.url = url
-        self.navigationTitle = navigationTitle
+        self.navigationTitle = navigationTitle.map { Text($0) }
         self.useAppLanguage = useAppLanguage
         self.allowsJavaScript = allowsJavaScript
         self.cachePolicy = cachePolicy
         self.allowsBrowsing = allowsBrowsing
     }
     
+    /// The same with the title as a `LocalizedStringResource`, for a caller that holds its words
+    /// as `Sendable` values.
+    public init(_ url: String, title: LocalizedStringResource) {
+        self.init(url)
+        navigationTitle = Text(title)
+    }
+
     public var body: some View {
         if let validUrl = normalizedURL(from: url) {
             GatedWebViewRepresentable(
@@ -94,7 +103,7 @@ public struct GatedWebView: View {
                 allowsBrowsing: allowsBrowsing,
                 pageTitle: $pageTitle
             )
-            .navigationTitle(navigationTitle.map { Text($0) } ?? Text(pageTitle))
+            .navigationTitle(navigationTitle ?? Text(pageTitle))
             #if os(iOS)
             .navigationBarTitleDisplayMode(.inline)
             #endif
