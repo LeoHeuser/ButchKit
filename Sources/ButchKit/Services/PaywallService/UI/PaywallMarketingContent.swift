@@ -26,20 +26,14 @@ struct PaywallMarketingContent: View {
     @Environment(\.accessibilityReduceMotion) private var reduceMotion
 
     var body: some View {
-        TabView(selection: $currentPage) {
-            ForEach(features.indices, id: \.self) { index in
-                PaywallFeaturePage(feature: features[index])
-                    .tag(index)
-            }
-        }
-        #if os(iOS)
-        .tabViewStyle(.page)
-        .indexViewStyle(.page(backgroundDisplayMode: .always))
-        #endif
+        pages
         // The paged TabView insets its pages by the top safe area on its own, which bands the
         // photos off under the navigation bar.
         .ignoresSafeArea(edges: .top)
         .frame(height: height)
+        // A page about the introductory offer comes and goes with the user's eligibility, which
+        // the App Store reports a moment after the paywall opens.
+        .onChange(of: features.count) { currentPage = 0 }
         .onChange(of: currentPage) {
             if isProgrammaticChange {
                 isProgrammaticChange = false
@@ -48,8 +42,9 @@ struct PaywallMarketingContent: View {
             }
         }
         // Reduce Motion means no page moves unless the user moves it, and a single page has
-        // nowhere to go: neither keeps a timer running.
-        .task(id: reduceMotion) {
+        // nowhere to go: neither keeps a timer running. Keyed on the count as well, so the second
+        // page appearing with the introductory offer starts the timer that had nothing to do.
+        .task(id: [features.count, reduceMotion ? 1 : 0]) {
             guard features.count > 1, !reduceMotion else { return }
             // Ends with the view; a page change does not restart the interval.
             while !Task.isCancelled {
@@ -62,6 +57,55 @@ struct PaywallMarketingContent: View {
             }
         }
     }
+}
+
+private extension PaywallMarketingContent {
+#if os(iOS)
+    var pages: some View {
+        TabView(selection: $currentPage) {
+            ForEach(features.indices, id: \.self) { index in
+                PaywallFeaturePage(feature: features[index])
+                    .tag(index)
+            }
+        }
+        .tabViewStyle(.page)
+        .indexViewStyle(.page(backgroundDisplayMode: .always))
+    }
+#else
+    /// The Mac has no paged `TabView`: without a style it draws a tab bar of empty tabs over the
+    /// pages. So one page at a time, cross-faded, with the dots underneath as the way to move,
+    /// since there is no swipe either.
+    var pages: some View {
+        ZStack(alignment: .bottom) {
+            if features.indices.contains(currentPage) {
+                PaywallFeaturePage(feature: features[currentPage])
+                    .id(currentPage)
+                    .transition(.opacity)
+            }
+            if features.count > 1 {
+                HStack(spacing: 8) {
+                    ForEach(features.indices, id: \.self) { index in
+                        Button {
+                            withAnimation { currentPage = index }
+                        } label: {
+                            Circle()
+                                .fill(index == currentPage ? .primary : .tertiary)
+                                .frame(width: 8, height: 8)
+                                // A target a pointer can hit.
+                                .padding(4)
+                                .contentShape(.rect)
+                        }
+                        .buttonStyle(.plain)
+                        // The page's own title: the dots have no words, and ButchKit ships none.
+                        .accessibilityLabel(Text(features[index].title))
+                        .accessibilityAddTraits(index == currentPage ? .isSelected : [])
+                    }
+                }
+                .padding(.bottom, 8)
+            }
+        }
+    }
+#endif
 }
 
 #if DEBUG

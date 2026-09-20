@@ -108,13 +108,42 @@ public final class PaywallService {
     /// The paywall presentation in flight, if any. The root sheet is bound to it.
     public private(set) var presentedRequest: PaywallRequest?
 
+    /// Whether the user can still get the group's introductory offer, the free trial usually.
+    /// `nil` until the App Store has said, for an app without a group, and for a user who already
+    /// pays. A page marked ``PaywallFeature/introOfferOnly`` shows only while this is `true`, so
+    /// the paywall never promises a free month to someone who has had it. Read it for the same
+    /// reason wherever the app words the offer itself.
+    public private(set) var isEligibleForIntroOffer: Bool?
+
     /// Receives every ``PaywallEvent``. Assign once, typically in the root view, to forward the
     /// funnel to the app's analytics.
     public var onEvent: ((PaywallEvent) -> Void)?
 
+    // MARK: - Internal State
+
+    /// The plan the user holds in the group, `nil` without one. Kept here rather than in the
+    /// settings row, so the row has it the moment it appears instead of loading it on every visit,
+    /// and the launch report needs no query of its own.
+    var heldPlan: HeldPlan?
+    /// The lifetime product the entitlement rests on, and whether it is a family member's.
+    private(set) var lifetimeProductID: String?
+    private(set) var lifetimeIsFamilyShared = false
+    /// Product names as App Store Connect spells them, by product, see ``loadPlanName(for:)``.
+    private(set) var planNames: [String: String] = [:]
+    /// Set once a lifetime purchase left a subscription renewing next to it and the paywall has
+    /// closed. The sheet host shows ``PaywallTexts/SubscriptionOverlap`` on it.
+    var showsSubscriptionOverlap = false
+
     // MARK: - Private State
 
     private var actionAfterUnlock: (() -> Void)?
+    /// An Ask to Buy purchase waiting for a parent, and what the user was on the way to when they
+    /// asked. The paywall is long closed when the approval comes, see ``handleSuccessfulPurchase(productID:subscriptionGroupID:)``.
+    @ObservationIgnored private var pendingPurchase: PaywallPendingPurchase? {
+        didSet { cache.write(pendingPurchase: pendingPurchase) }
+    }
+    /// A lifetime purchase went through next to a renewing subscription, see ``showsSubscriptionOverlap``.
+    private var subscriptionOverlapIsDue = false
     /// A `require` that arrived before StoreKit had answered, decided by ``markInitialized()``.
     private var heldRequirement: (source: String, action: () -> Void)?
     private var updatesTask: Task<Void, Never>?
@@ -130,8 +159,9 @@ public final class PaywallService {
     /// The request whose sheet came up, see ``present(source:)``.
     private var shownRequestID: PaywallRequest.ID?
     /// How long a request may wait for its sheet. Generous: giving up on a sheet that is only
-    /// slow would close a paywall the user was about to see. Changed in tests.
-    var presentationTimeout: Duration = .seconds(2)
+    /// slow would close a paywall the user was about to see, and a `present(source:)` from an App
+    /// Intent or a notification can land before the scene is on screen. Changed in tests.
+    var presentationTimeout: Duration = .seconds(5)
     /// The sheet hosts on screen, the innermost last. The root modifier registers one and every
     /// `View.paywallSheet()` another, see ``presents(_:)``.
     private var sheetHosts: [UUID] = []
@@ -165,14 +195,26 @@ public final class PaywallService {
         self.features = features
         let logger = LoggerService(subsystem: subsystem)["Purchase"]
         self.logger = logger
-        let cache = PaywallEntitlementCache(appGroupID: configuration.appGroupID)
+        let cache = PaywallEntitlementCache(appGroupID: configuration.appGroupID, legacy: configuration.legacyCache)
         self.cache = cache
         let cached = cache.entitlement
         self.hasCachedEntitlement = cached != nil
-        self.lastWrittenEntitlement = cached
+        // Only what ButchKit itself wrote, never a fallback: an answer read from the standard
+        // defaults or from the app's own key must still reach this store once StoreKit confirms
+        // it, or the migration never finishes and an extension keeps finding nothing.
+        self.lastWrittenEntitlement = cache.ownEntitlement
         // Restore the last known state so a paying user sees no paywall flash while StoreKit
         // answers asynchronously after launch.
         self.entitlement = cached ?? .none
+        // Whoever asked a parent on an earlier launch is still waiting. A request Apple has
+        // dropped by now is not kept: see ``PaywallPendingPurchase/lifetime``.
+        if let pending = cache.pendingPurchase {
+            if pending.isCurrent(at: .now) {
+                self.pendingPurchase = pending
+            } else {
+                cache.write(pendingPurchase: nil)
+            }
+        }
         // The configuration's own assert is gone in a release build, where this would otherwise
         // be an empty sheet and nothing else.
         if configuration.subscriptionGroupID == nil, configuration.lifetimeProductIDs.isEmpty {
@@ -195,6 +237,8 @@ public final class PaywallService {
     public convenience init(configuration: PaywallConfiguration, texts: PaywallTexts, previewEntitlement: PaywallEntitlement) {
         self.init(configuration: configuration, texts: texts)
         entitlement = previewEntitlement
+        // What a refresh would have found, so the settings row names a product.
+        lifetimeProductID = previewEntitlement == .lifetime ? configuration.lifetimeProductIDs.first : nil
         isInitialized = true
     }
 
@@ -219,9 +263,12 @@ public final class PaywallService {
         guard !isInitialized else { return }
         listenForUpdates()
         listenForStatusUpdates()
-        await refresh()
+        // The entitlement read alone, which is local. The public `refresh()` would ask the App
+        // Store as well, and the gate below must not wait on a network answer.
+        await refresh(currentEntitlements: PaywallEntitlementSnapshot.current(under:))
         guard markInitialized() else { return }
         // After isInitialized, so a slow App Store answer never holds up a launch gate.
+        await loadSubscriptionDetails()
         await reportSubscriptionPhase()
     }
 
@@ -232,6 +279,7 @@ public final class PaywallService {
     /// runs to its end, one behind the other.
     public func refresh() async {
         await refresh(currentEntitlements: PaywallEntitlementSnapshot.current(under:))
+        await loadSubscriptionDetails()
     }
 
     /// - Parameter currentEntitlements: Reads the entitlements. Replaced in tests.
@@ -243,7 +291,7 @@ public final class PaywallService {
         let task = Task { [weak self] in
             await previous?.value
             guard let self else { return }
-            applyEntitlement(await currentEntitlements(configuration).strongest)
+            applyEntitlement(await currentEntitlements(configuration))
         }
         refreshTask = task
         await task.value
@@ -273,11 +321,50 @@ public final class PaywallService {
     /// - Parameters:
     ///   - productID: The product bought.
     ///   - subscriptionGroupID: The product's subscription group, `nil` for a lifetime product.
-    func handleSuccessfulPurchase(productID: String, subscriptionGroupID: String?) {
+    ///   - isDirectPurchase: `true` from the paywall's own completion handler: the purchase went
+    ///     through at once, so whatever was pending for the product was not what unlocked it.
+    func handleSuccessfulPurchase(productID: String, subscriptionGroupID: String?, isDirectPurchase: Bool = false) {
         let granted = configuration.entitlement(productID: productID, subscriptionGroupID: subscriptionGroupID)
         guard granted != .none else { return }
         lastPurchase = .now
+        // Only a purchase that lifts the user to lifetime: `Transaction.updates` replays finished
+        // purchases at launch, and an owner must not be asked about their subscription every time.
+        if granted == .lifetime, entitlement < .lifetime {
+            lifetimeProductID = productID
+            // Only a purchase this paywall made: from the sheet on screen, or the approval of what
+            // it asked for. One bought on another device arrives through `Transaction.updates` with
+            // nothing on screen, and would otherwise leave the alert armed to appear out of nowhere.
+            let isOurs = presentedRequest != nil || pendingPurchase?.productID == productID
+            subscriptionOverlapIsDue = isOurs && heldPlan?.willAutoRenew == true && texts.subscriptionOverlap != nil
+        }
         setEntitlement(max(entitlement, granted))
+        if isDirectPurchase {
+            // Reported as completed by the paywall. Reporting an approval too would count it twice.
+            if pendingPurchase?.productID == productID { pendingPurchase = nil }
+        } else {
+            resolvePendingPurchase(productID: productID)
+        }
+    }
+
+    /// Ask to Buy: the purchase waits for a parent. Apple's own sheet tells the user; the paywall
+    /// stays as it is. What the user was on the way to is kept past the paywall's closing.
+    func purchaseDidPend(source: String, productID: String) {
+        pendingPurchase = PaywallPendingPurchase(source: source, productID: productID, date: .now)
+        report(.purchasePending(source: source, productID: productID))
+    }
+
+    /// The approval of an Ask to Buy purchase, which arrives through `Transaction.updates`, often
+    /// long after the paywall closed and usually after the app was quit. Reported so the funnel
+    /// can close, on whichever launch it arrives. The user is taken where they were going when
+    /// they asked only if the app is still running: an action does not survive a launch.
+    private func resolvePendingPurchase(productID: String) {
+        guard let pending = pendingPurchase, pending.productID == productID else { return }
+        pendingPurchase = nil
+        guard pending.isCurrent(at: .now) else { return }
+        report(.purchaseApproved(source: pending.source, productID: productID))
+        // With the paywall still open, closing it runs the action, see ``paywallDidDismiss()``.
+        guard presentedRequest == nil else { return }
+        runActionAfterUnlock()
     }
 
     // MARK: - Restore
@@ -310,7 +397,7 @@ public final class PaywallService {
             syncError = error
         }
         let snapshot = await currentEntitlements(configuration)
-        applyEntitlement(snapshot.strongest)
+        applyEntitlement(snapshot)
 
         let outcome = PaywallRestoreOutcome.decide(syncError: syncError, snapshot: snapshot)
         logRestore(outcome, syncError: syncError, entitlement: snapshot.strongest)
@@ -381,6 +468,8 @@ public final class PaywallService {
         switch event {
         case .purchasePending:
             logger.notice("Purchase pending: waiting for approval")
+        case .purchaseApproved:
+            logger.notice("Purchase approved: pending purchase went through")
         case .verificationFailed:
             logger.error("Transaction verification failed")
         // A failed purchase is logged with its error, see ``reportPurchaseFailure(_:source:productID:)``.
@@ -407,10 +496,23 @@ public final class PaywallService {
     /// Called by the sheet's `onDismiss`, whichever way the sheet went away. The request itself
     /// is already cleared by then, through `dismissPaywall()` or the sheet binding.
     func paywallDidDismiss() {
-        let action = actionAfterUnlock
-        actionAfterUnlock = nil
-        guard hasAccess else { return }
-        action?()
+        guard hasAccess else {
+            // Closed without access. With a purchase waiting for a parent the action waits with it,
+            // see ``resolvePendingPurchase(productID:)``; otherwise it is dropped here.
+            if pendingPurchase == nil { actionAfterUnlock = nil }
+            return
+        }
+        runActionAfterUnlock()
+    }
+
+    /// Loads a product's name for the settings row, once per product for the life of the service.
+    /// The name is decoration: when it cannot load, the app's fallback stands in, and the next
+    /// visit to the settings tries again.
+    func loadPlanName(for productID: String) async {
+        guard planNames[productID] == nil else { return }
+        if let product = try? await Product.products(for: [productID]).first {
+            planNames[productID] = product.displayName
+        }
     }
 
     // MARK: - Private
@@ -429,22 +531,62 @@ public final class PaywallService {
         }
     }
 
-    /// See ``PaywallEvent/subscriptionStatus(phase:productID:)``.
+    /// Takes the user where they were going when they hit the lock, then points out a
+    /// subscription left running next to a lifetime purchase. Both ends of an unlock, the paywall
+    /// closing and an Ask to Buy approval arriving after it, finish here.
+    private func runActionAfterUnlock() {
+        let action = actionAfterUnlock
+        actionAfterUnlock = nil
+        action?()
+        showSubscriptionOverlapIfDue()
+    }
+
+    /// After the paywall has closed, never over it: the alert leads out of the app's purchase and
+    /// into the system's subscription management.
+    private func showSubscriptionOverlapIfDue() {
+        guard subscriptionOverlapIsDue else { return }
+        subscriptionOverlapIsDue = false
+        showsSubscriptionOverlap = true
+    }
+
+    /// See ``PaywallEvent/subscriptionStatus(phase:productID:)``. From the plan the first refresh
+    /// loaded, so the report costs no query of its own.
     private func reportSubscriptionPhase() async {
-        // Without a listener the App Store query would be wasted.
-        guard onEvent != nil, entitlement == .subscription, let groupID = configuration.subscriptionGroupID else { return }
+        guard entitlement == .subscription, let plan = heldPlan, let phase = plan.phase else { return }
+        report(.subscriptionStatus(phase: phase, productID: plan.productID))
+    }
+
+    /// What the group says beyond the entitlement: the plan a paying user holds, and whether a
+    /// user who does not pay can still get the introductory offer. Each asked only of the user it
+    /// concerns, so nobody's launch carries a query whose answer goes nowhere.
+    private func loadSubscriptionDetails() async {
+        guard let groupID = configuration.subscriptionGroupID else { return }
+        guard hasAccess else {
+            if heldPlan != nil { heldPlan = nil }
+            // Asked once. Only a purchase changes the answer, and that sets it back to `nil`
+            // below; without this every foreground of every free user costs a round trip.
+            guard isEligibleForIntroOffer == nil else { return }
+            let isEligible = await Product.SubscriptionInfo.isEligibleForIntroOffer(for: groupID)
+            // A cancelled read comes back `false` rather than throwing, and would quietly take
+            // every introductory offer page off the paywall of a user who is eligible.
+            guard !Task.isCancelled else { return }
+            if isEligibleForIntroOffer != isEligible { isEligibleForIntroOffer = isEligible }
+            return
+        }
+        if isEligibleForIntroOffer != nil { isEligibleForIntroOffer = nil }
         do {
-            let statuses = try await Product.SubscriptionInfo.status(for: groupID)
-            guard let plan = HeldPlan.current(in: statuses), let phase = plan.phase else { return }
-            report(.subscriptionStatus(phase: phase, productID: plan.productID))
+            let plan = HeldPlan.current(in: try await Product.SubscriptionInfo.status(for: groupID))
+            if heldPlan != plan { heldPlan = plan }
         } catch {
-            // Analytics only, and the next launch tries again.
-            logger.error("Loading the subscription status for analytics failed: \(error.logCode, privacy: .public)")
+            // Decoration for the settings row and analytics. What is known stays, and the next
+            // refresh tries again.
+            logger.error("Loading the subscription status failed: \(error.logCode, privacy: .public)")
         }
     }
 
-    /// Takes an entitlement freshly read from StoreKit: notes a real loss of access and stores it.
-    private func applyEntitlement(_ resolved: PaywallEntitlement) {
+    /// Takes the entitlements freshly read from StoreKit: notes a real loss of access and stores them.
+    private func applyEntitlement(_ snapshot: PaywallEntitlementSnapshot) {
+        let resolved = snapshot.strongest
         if resolved < entitlement, let lastPurchase, .now - lastPurchase < purchaseGracePeriod {
             logger.notice("Entitlement kept: StoreKit does not list the purchase yet")
             return
@@ -454,6 +596,11 @@ public final class PaywallService {
         if resolved == .none, hasAccess {
             logger.notice("Entitlement cleared: no active entitlement")
         }
+        // Guarded for the same reason as ``setEntitlement(_:)``: this runs on every foreground, and
+        // an unguarded write would re-render the settings row and the paywall for an answer that
+        // did not move.
+        if lifetimeProductID != snapshot.lifetimeProductID { lifetimeProductID = snapshot.lifetimeProductID }
+        if lifetimeIsFamilyShared != snapshot.lifetimeIsFamilyShared { lifetimeIsFamilyShared = snapshot.lifetimeIsFamilyShared }
         setEntitlement(resolved)
         logger.debug("Entitlement resolved: \(resolved.rawValue, privacy: .public)")
     }
@@ -468,6 +615,8 @@ public final class PaywallService {
             logger.notice("Restore finished: outcome=nothingToRestore")
         case .cancelled:
             logger.notice("Restore finished: outcome=cancelled")
+        case .offline:
+            logger.notice("Restore finished: outcome=offline")
         case .failed:
             if let syncError {
                 logger.error("Restore failed: reason=sync \(syncError.logCode, privacy: .public)")
@@ -537,8 +686,19 @@ public final class PaywallService {
             // refund arriving in the same batch would be waved through.
             lastPurchase = nil
             await refresh()
+        } else if let expirationDate = transaction.expirationDate, expirationDate <= .now {
+            // `Transaction.updates` replays finished purchases at launch, a subscription that ran
+            // out since among them. Granting on it would arm ``purchaseGracePeriod``, and the
+            // launch's own read, which correctly finds nothing, would then be refused as too
+            // early: the user would be shown as paying until the next foreground. A subscription
+            // running out while the app is open produces no transaction at all, see
+            // ``listenForStatusUpdates()``, so there is nothing else this can be.
+            logger.debug("Expired transaction ignored: \(transaction.productID, privacy: .public)")
         } else {
             handleSuccessfulPurchase(productID: transaction.productID, subscriptionGroupID: transaction.subscriptionGroupID)
+            // A renewal or a plan change moves the settings row's second line. Only a
+            // subscription has one: a lifetime product would cost a query that answers nothing.
+            if granted == .subscription { await loadSubscriptionDetails() }
         }
     }
 }

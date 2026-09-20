@@ -26,6 +26,8 @@ enum PaywallPreviewStore {
     case threeOneTimePurchases
     /// The three plans next to the three lifetime products, which brings in the segmented control.
     case subscriptionsAndOneTimePurchases
+    /// Lifetime products the store does not know, as when none of them load.
+    case unavailableOneTimePurchases
 
     private static let lifetimeProductIDs = [
         "design.heuser.butchkit.preview.lifetime",
@@ -43,6 +45,8 @@ enum PaywallPreviewStore {
             PaywallConfiguration(lifetimeProductIDs: [Self.lifetimeProductIDs[0]])
         case .threeOneTimePurchases:
             PaywallConfiguration(lifetimeProductIDs: Self.lifetimeProductIDs)
+        case .unavailableOneTimePurchases:
+            PaywallConfiguration(lifetimeProductIDs: ["design.heuser.butchkit.preview.unknown"])
         case .subscriptionsAndOneTimePurchases:
             PaywallConfiguration(subscriptionGroupID: "B07C4A21", lifetimeProductIDs: Self.lifetimeProductIDs)
         }

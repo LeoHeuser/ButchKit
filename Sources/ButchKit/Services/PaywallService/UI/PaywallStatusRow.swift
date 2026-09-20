@@ -28,15 +28,21 @@ import SwiftUI
 /// row on the reader instead.
 public struct PaywallStatusRow: View {
     private let source: String
+    private let systemImage: String?
 
     @Environment(PaywallService.self) private var paywall
 
     /// Creates the row.
     ///
-    /// - Parameter source: The app's name for this entry point, carried on every
-    ///   ``PaywallEvent`` the row produces. Conventionally `"settings"`.
-    public init(source: String) {
+    /// - Parameters:
+    ///   - source: The app's name for this entry point, carried on every ``PaywallEvent`` the
+    ///     row produces. Conventionally `"settings"`.
+    ///   - systemImage: An SF Symbol in front of the row, for a settings screen whose rows all
+    ///     carry one. The same symbol in every state. Anything beyond an icon is a row of the
+    ///     app's own on ``PaywallStatusReader``.
+    public init(source: String, systemImage: String? = nil) {
         self.source = source
+        self.systemImage = systemImage
     }
 
     public var body: some View {
@@ -49,7 +55,9 @@ public struct PaywallStatusRow: View {
                     ProgressView()
                         .frame(maxWidth: .infinity)
                 case .none:
-                    Button(texts.offer, action: status.showPaywall)
+                    Button(action: status.showPaywall) {
+                        withIcon { Text(texts.offer) }
+                    }
                         .accessibilityLabel(texts.offerLabel)
                         .accessibilityHint(texts.offerHint)
                 case .subscription, .lifetime:
@@ -60,10 +68,12 @@ public struct PaywallStatusRow: View {
                                 .accessibilityHint(texts.manageHint)
                         }
                     } label: {
-                        texts.planName(status.planName)
+                        withIcon {
+                            texts.planName(status.planName)
 
-                        if let detail = status.detail {
-                            texts.detail(detail)
+                            if let detail = status.detail {
+                                texts.detail(detail)
+                            }
                         }
                     }
                 }
@@ -71,6 +81,22 @@ public struct PaywallStatusRow: View {
         } else {
             Color.clear.frame(height: 0)
                 .onAppear { paywall.logger.fault("PaywallStatusRow has no words: PaywallTexts.statusRow is missing") }
+        }
+    }
+
+    /// The row's words behind its symbol, or on their own without one. The symbol is decoration:
+    /// the words already say everything VoiceOver needs.
+    @ViewBuilder
+    private func withIcon(@ViewBuilder _ title: () -> some View) -> some View {
+        if let systemImage {
+            Label {
+                VStack(alignment: .leading) { title() }
+            } icon: {
+                Image(systemName: systemImage)
+                    .accessibilityHidden(true)
+            }
+        } else {
+            title()
         }
     }
 }

@@ -73,8 +73,8 @@ Every type is documented in code. This is the map.
 - `PaywallConfiguration` — the subscription group and the lifetime products, at least one of the two, policy URLs, the marketing pages' height and the app group for the cache.
 - `PaywallEntitlementCache` — the last confirmed entitlement, readable from a widget, an extension or an App Intent.
 - `PaywallEntitlement` — `none`, `subscription` or `lifetime`.
-- `PaywallTexts` — every word the paywall and the settings row show, handed in by the app in three groups: `Sheet`, `OfferTabs`, `StatusRow`.
-- `PaywallFeature` — one marketing page: title, description, image.
+- `PaywallTexts` — every word the paywall and the settings row show, handed in by the app in groups: `Sheet`, `OfferTabs`, `StatusRow`, `SubscriptionOverlap`.
+- `PaywallFeature` — one marketing page: title, description, image, and whether it shows only to a user who can still get the introductory offer.
 - `PaywallEvent` — the funnel, forwarded through `PaywallService.onEvent` to the app's analytics, each with a stable `name` and `parameters`.
 - `PaywallPurchaseFailure` — the kind of a failed purchase, what `PaywallEvent.purchaseFailed` carries in place of the error's text.
 - `PaywallRestoreOutcome` — how `restorePurchases()` ended.

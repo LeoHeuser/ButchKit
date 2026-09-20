@@ -22,7 +22,17 @@ extension PaywallTexts {
             restoreSucceededTitle: "Purchase Restored",
             nothingToRestoreTitle: "No Purchase to Restore",
             restoreFailedTitle: "Restore Failed",
-            restoreFailedMessage: "Your purchase could not be restored. Check your internet connection and try again."
+            restoreFailedMessage: "Your purchase could not be restored. Try again in a moment.",
+            restoreOffline: .init(
+                title: "No Connection",
+                message: "The App Store could not be reached. Check your internet connection and try again."
+            ),
+            purchasedLabel: "Purchased",
+            productsUnavailable: .init(
+                title: "Purchases Unavailable",
+                message: "Check your connection and try again.",
+                retry: "Try Again"
+            )
         ),
         offerTabs: OfferTabs(subscription: "Subscription", oneTime: "One-Time Purchase"),
         statusRow: StatusRow(
@@ -36,6 +46,12 @@ extension PaywallTexts {
             renews: { Text("Renews on \($0, format: .dateTime.day().month().year())") },
             ends: { Text("Ends on \($0, format: .dateTime.day().month().year())") },
             billingIssue: "Payment didn't go through."
+        ),
+        subscriptionOverlap: SubscriptionOverlap(
+            title: "Your subscription is still running",
+            message: "Your purchase unlocks everything for good. The subscription renews until you cancel it.",
+            manage: "Manage Subscription",
+            later: "Later"
         )
     )
 }

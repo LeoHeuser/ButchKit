@@ -29,6 +29,8 @@ struct PaywallFeaturePage: View {
             }
         }
         .multilineTextAlignment(.center)
+        // One element per page, so VoiceOver reads title and description in one go.
+        .accessibilityElement(children: .combine)
         .padding(32)
         .padding(.bottom, hasPhoto ? 32 : 0)
         .frame(maxWidth: .infinity, maxHeight: .infinity, alignment: hasPhoto ? .bottom : .center)

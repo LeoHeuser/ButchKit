@@ -58,6 +58,19 @@ struct PaywallConfigurationTests {
 
     /// Without a group of its own, a product without a group must not count as a member of it:
     /// `nil` matching `nil` would unlock the app for any unknown non-consumable.
+    /// The share is an upper bound: the Subscribe button staying in view is worth more than the
+    /// last of the photo.
+    @Test("Gives the pages their share, less what the purchases need")
+    func featureHeight() {
+        let config = PaywallConfiguration(subscriptionGroupID: "TEST")
+        // A tall sheet: 62 % leaves more than the purchases need, so the share stands.
+        #expect(config.featureHeight(in: 800, reserving: 280) == 800 * 0.62)
+        // A short one: the pages give way.
+        #expect(config.featureHeight(in: 600, reserving: 280) == 320)
+        // Never negative, at a text size where the purchases want more than there is.
+        #expect(config.featureHeight(in: 300, reserving: 500) == 0)
+    }
+
     @Test("Sells lifetime products without a subscription")
     func lifetimeOnly() {
         let config = PaywallConfiguration(lifetimeProductIDs: ["lifetime"])
@@ -143,8 +156,16 @@ struct PaywallRestoreOutcomeTests {
 
     @Test("Failed when the sync throws anything else")
     func syncFailed() {
-        #expect(PaywallRestoreOutcome.decide(syncError: offline, snapshot: nothing) == .failed)
         #expect(PaywallRestoreOutcome.decide(syncError: SomeError(), snapshot: nothing) == .failed)
+    }
+
+    /// The usual case right after a reinstall, and one the user can do something about, so it
+    /// gets words of its own.
+    @Test("Offline when the App Store could not be reached")
+    func offlineOutcome() {
+        #expect(PaywallRestoreOutcome.decide(syncError: offline, snapshot: nothing) == .offline)
+        // Not every path wraps the connection error in StoreKit's own.
+        #expect(PaywallRestoreOutcome.decide(syncError: URLError(.timedOut), snapshot: nothing) == .offline)
     }
 
     @Test("Failed when the only purchase found is unverified")
@@ -176,6 +197,7 @@ struct PaywallServiceTests {
     private func clearCache() {
         UserDefaults.standard.removeObject(forKey: PaywallEntitlementCache.key)
         UserDefaults.standard.removeObject(forKey: PaywallEntitlementCache.legacyKey)
+        UserDefaults.standard.removeObject(forKey: PaywallEntitlementCache.pendingPurchaseKey)
     }
 
     @Test("Starts uninitialized with its configuration")
@@ -187,6 +209,20 @@ struct PaywallServiceTests {
         #expect(service.configuration == config)
         #expect(service.features.isEmpty)
         #expect(service.presentedRequest == nil)
+    }
+
+    @Test("The root modifier's holder builds the service once")
+    func holderBuildsOnce() {
+        let holder = PaywallServiceHolder()
+        var builds = 0
+        let make = {
+            builds += 1
+            return makeService()
+        }
+        let first = holder.service(make)
+        let second = holder.service(make)
+        #expect(first === second)
+        #expect(builds == 1)
     }
 
     @Test("Forwards events to onEvent")
@@ -411,6 +447,154 @@ struct PaywallServiceTests {
         #expect(!service.markInitialized())
     }
 
+    // MARK: Ask to Buy
+
+    /// A parent approves minutes or days later, long after the paywall closed.
+    @Test("Keeps the action of a pending purchase past the paywall, and runs it on approval")
+    func approvalRunsAction() {
+        let service = makeService()
+        var received: [PaywallEvent] = []
+        service.onEvent = { received.append($0) }
+        var ran = false
+        service.require(source: "export") { ran = true }
+        service.purchaseDidPend(source: "export", productID: "yearly")
+        service.dismissPaywall()
+        service.paywallDidDismiss()
+        #expect(!ran)
+
+        service.handleSuccessfulPurchase(productID: "yearly", subscriptionGroupID: "TEST")
+        #expect(ran)
+        #expect(received == [
+            .purchasePending(source: "export", productID: "yearly"),
+            .purchaseApproved(source: "export", productID: "yearly")
+        ])
+        clearCache()
+    }
+
+    /// The usual case: the child asks, quits the app, and the parent approves in the evening.
+    @Test("Reports an approval that arrives on a later launch, with the source it was asked from")
+    func approvalSurvivesRelaunch() {
+        let first = makeService()
+        first.purchaseDidPend(source: "export", productID: "yearly")
+
+        let second = PaywallService(configuration: config, texts: .preview)
+        var received: [PaywallEvent] = []
+        second.onEvent = { received.append($0) }
+        second.handleSuccessfulPurchase(productID: "yearly", subscriptionGroupID: "TEST")
+        #expect(received == [.purchaseApproved(source: "export", productID: "yearly")])
+
+        // Once, not on every launch after.
+        let third = PaywallService(configuration: config, texts: .preview)
+        third.onEvent = { received.append($0) }
+        third.handleSuccessfulPurchase(productID: "yearly", subscriptionGroupID: "TEST")
+        #expect(received.count == 1)
+        clearCache()
+    }
+
+    /// The paywall reports such a purchase as completed. An approval on top would count it twice.
+    @Test("Reports no approval for a purchase that went through at once")
+    func directPurchaseIsNoApproval() {
+        let service = makeService()
+        var received: [PaywallEvent] = []
+        service.purchaseDidPend(source: "export", productID: "yearly")
+        service.onEvent = { received.append($0) }
+        service.handleSuccessfulPurchase(productID: "yearly", subscriptionGroupID: "TEST", isDirectPurchase: true)
+        #expect(received.isEmpty)
+        #expect(PaywallEntitlementCache().pendingPurchase == nil)
+        clearCache()
+    }
+
+    /// Apple drops an unanswered request after a day. A purchase weeks later is no approval of it.
+    @Test("Forgets a request Apple has dropped by now")
+    func pendingPurchaseExpires() {
+        clearCache()
+        let old = PaywallPendingPurchase(source: "export", productID: "yearly", date: .now.addingTimeInterval(-PaywallPendingPurchase.lifetime - 1))
+        PaywallEntitlementCache().write(pendingPurchase: old)
+        let service = PaywallService(configuration: config, texts: .preview)
+        var received: [PaywallEvent] = []
+        service.onEvent = { received.append($0) }
+        service.handleSuccessfulPurchase(productID: "yearly", subscriptionGroupID: "TEST")
+        #expect(received.isEmpty)
+        #expect(PaywallEntitlementCache().pendingPurchase == nil)
+        clearCache()
+    }
+
+    @Test("Drops the pending action when the user asks for something else")
+    func newRequestDropsPendingAction() {
+        let service = makeService()
+        var ran = false
+        service.require(source: "export") { ran = true }
+        service.purchaseDidPend(source: "export", productID: "yearly")
+        service.dismissPaywall()
+        service.paywallDidDismiss()
+        service.present(source: "settings")
+        service.dismissPaywall()
+        service.paywallDidDismiss()
+        service.handleSuccessfulPurchase(productID: "yearly", subscriptionGroupID: "TEST")
+        #expect(!ran)
+        clearCache()
+    }
+
+    // MARK: Lifetime next to a subscription
+
+    private let renewingPlan = HeldPlan(state: .subscribed, productID: "yearly", expirationDate: nil, willAutoRenew: true)
+
+    /// The user would keep paying for both, and no app can cancel for them.
+    @Test("Points out a renewing subscription once the paywall has closed on a lifetime purchase")
+    func overlapAfterLifetimePurchase() {
+        let service = makeService()
+        service.handleSuccessfulPurchase(productID: "yearly", subscriptionGroupID: "TEST")
+        service.heldPlan = renewingPlan
+        service.present(source: "settings")
+        service.handleSuccessfulPurchase(productID: "lifetime", subscriptionGroupID: nil)
+        #expect(!service.showsSubscriptionOverlap)
+        service.dismissPaywall()
+        service.paywallDidDismiss()
+        #expect(service.showsSubscriptionOverlap)
+        clearCache()
+    }
+
+    /// `Transaction.updates` replays finished purchases at launch.
+    @Test("Says nothing when a lifetime purchase is only replayed")
+    func noOverlapOnReplay() {
+        let service = makeService()
+        service.heldPlan = renewingPlan
+        service.handleSuccessfulPurchase(productID: "lifetime", subscriptionGroupID: nil)
+        service.paywallDidDismiss()
+        service.showsSubscriptionOverlap = false
+        service.handleSuccessfulPurchase(productID: "lifetime", subscriptionGroupID: nil)
+        service.paywallDidDismiss()
+        #expect(!service.showsSubscriptionOverlap)
+        clearCache()
+    }
+
+    /// Bought on another device, it arrives with nothing on screen. Armed, the alert would appear
+    /// the next time the user closed the paywall, possibly days later and possibly after they
+    /// cancelled the subscription themselves.
+    @Test("Says nothing about a lifetime purchase this paywall did not make")
+    func noOverlapForAPurchaseMadeElsewhere() {
+        let service = makeService()
+        service.heldPlan = renewingPlan
+        // No paywall on screen, and nothing waiting for a parent.
+        service.handleSuccessfulPurchase(productID: "lifetime", subscriptionGroupID: nil)
+        #expect(!service.showsSubscriptionOverlap)
+        service.present(source: "settings")
+        service.dismissPaywall()
+        service.paywallDidDismiss()
+        #expect(!service.showsSubscriptionOverlap)
+        clearCache()
+    }
+
+    @Test("Says nothing when the subscription already ends")
+    func noOverlapWithoutRenewal() {
+        let service = makeService()
+        service.heldPlan = HeldPlan(state: .subscribed, productID: "yearly", expirationDate: nil, willAutoRenew: false)
+        service.handleSuccessfulPurchase(productID: "lifetime", subscriptionGroupID: nil)
+        service.paywallDidDismiss()
+        #expect(!service.showsSubscriptionOverlap)
+        clearCache()
+    }
+
     // MARK: Presentation
 
     /// Asked for from inside a sheet without `.paywallSheet()`, the request would otherwise bring
@@ -500,6 +684,45 @@ struct PaywallServiceTests {
         #expect(cache.entitlement == .lifetime)
         #expect(UserDefaults.standard.string(forKey: PaywallEntitlementCache.key) == nil)
         clearGroup()
+    }
+
+    /// An app that comes from purchase code of its own kept its answer under a key of its own.
+    @Test("Reads the app's own earlier key until ButchKit has an answer")
+    func legacyCache() {
+        clearGroup()
+        let legacy = PaywallConfiguration.LegacyCache(key: "isPro", suiteName: suiteName)
+        let cache = PaywallEntitlementCache(appGroupID: nil, legacy: legacy)
+        #expect(cache.entitlement == nil)
+        UserDefaults(suiteName: suiteName)?.set(true, forKey: "isPro")
+        #expect(cache.entitlement == .subscription)
+        cache.write(.none)
+        #expect(cache.entitlement == PaywallEntitlement.none)
+        clearGroup()
+    }
+
+    /// Seeded from the app's own key, the service would otherwise dedupe its first write away and
+    /// never write ButchKit's key at all: the app could never drop `legacyCache`, and an extension
+    /// reading the documented key by hand would find nothing forever.
+    @Test("Writes its own key even when the answer it started from came from the app's")
+    func writesThroughALegacyAnswer() async {
+        clearGroup()
+        clearCache()
+        UserDefaults(suiteName: suiteName)?.set(true, forKey: "isPro")
+        let service = PaywallService(
+            configuration: PaywallConfiguration(
+                subscriptionGroupID: "TEST",
+                legacyCache: .init(key: "isPro", suiteName: suiteName)
+            ),
+            texts: .preview
+        )
+        #expect(service.entitlement == .subscription)
+        #expect(UserDefaults.standard.string(forKey: PaywallEntitlementCache.key) == nil)
+
+        // StoreKit confirms the very same answer.
+        await service.refresh(currentEntitlements: entitlements(.subscription))
+        #expect(UserDefaults.standard.string(forKey: PaywallEntitlementCache.key) == "subscription")
+        clearGroup()
+        clearCache()
     }
 
     /// An app that adopts a group in an update keeps what it cached before, so its subscribers
@@ -612,7 +835,8 @@ struct PaywallStatusTests {
     private func status(
         _ entitlement: PaywallEntitlement,
         renewing: Bool = true,
-        loadedName: (productID: String, name: String)? = nil,
+        planNames: [String: String] = [:],
+        familyShared: Bool = false,
         isInitialized: Bool = true,
         hasCachedEntitlement: Bool = false
     ) -> PaywallStatus {
@@ -620,9 +844,10 @@ struct PaywallStatusTests {
             entitlement: entitlement,
             isInitialized: isInitialized,
             hasCachedEntitlement: hasCachedEntitlement,
-            heldPlan: HeldPlan(state: .subscribed, productID: "yearly", expirationDate: date, willAutoRenew: renewing),
+            heldPlan: HeldPlan(state: .subscribed, productID: "yearly", expirationDate: date, willAutoRenew: renewing, isFamilyShared: familyShared),
             lifetimeProductID: "lifetime",
-            loadedName: loadedName,
+            lifetimeIsFamilyShared: familyShared,
+            planNames: planNames,
             showPaywall: {},
             manageSubscription: {}
         )
@@ -636,10 +861,22 @@ struct PaywallStatusTests {
     }
 
     /// After a plan change the old name would name a plan the user no longer holds.
-    @Test("Drops a name loaded for another product")
+    @Test("Names only the product held")
     func staleName() {
-        #expect(status(.subscription, loadedName: ("yearly", "Yearly")).planName == "Yearly")
-        #expect(status(.subscription, loadedName: ("monthly", "Monthly")).planName == nil)
+        #expect(status(.subscription, planNames: ["yearly": "Yearly"]).planName == "Yearly")
+        #expect(status(.subscription, planNames: ["monthly": "Monthly"]).planName == nil)
+    }
+
+    /// A family member's plan is not this user's to cancel, so neither a subscriber on one nor a
+    /// lifetime owner beside one is sent to a management sheet that has nothing for them.
+    @Test("Knows a shared plan, and offers no management of one")
+    func familySharing() {
+        #expect(status(.subscription, familyShared: true).isFamilyShared)
+        #expect(!status(.subscription).isFamilyShared)
+        #expect(status(.lifetime, familyShared: true).isFamilyShared)
+        #expect(!status(.subscription, familyShared: true).canManageSubscription)
+        #expect(status(.subscription).canManageSubscription)
+        #expect(!status(.lifetime, familyShared: true).canManageSubscription)
     }
 
     @Test("Tells what happens next only for a subscription")
@@ -741,6 +978,7 @@ struct PaywallEventTests {
             (.purchaseStarted(source: "s", productID: "p"), "paywall.purchaseStarted", ["source": "s", "productID": "p"]),
             (.purchaseCompleted(source: "s", productID: "p", isIntroductoryOffer: true), "paywall.purchaseCompleted", ["source": "s", "productID": "p", "isIntroductoryOffer": "true"]),
             (.purchasePending(source: "s", productID: "p"), "paywall.purchasePending", ["source": "s", "productID": "p"]),
+            (.purchaseApproved(source: "s", productID: "p"), "paywall.purchaseApproved", ["source": "s", "productID": "p"]),
             (.purchaseFailed(source: "s", productID: "p", reason: .network), "paywall.purchaseFailed", ["source": "s", "productID": "p", "reason": "network"]),
             (.verificationFailed, "paywall.verificationFailed", [:]),
             (.subscriptionStatus(phase: .trialCanceled, productID: "p"), "paywall.subscriptionStatus", ["phase": "trialCanceled", "productID": "p"])

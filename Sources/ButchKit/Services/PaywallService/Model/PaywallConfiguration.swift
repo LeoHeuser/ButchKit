@@ -45,8 +45,9 @@ public struct PaywallConfiguration: Sendable, Equatable {
     /// Shown behind the paywall's terms of service button. `nil` hides the policy buttons.
     public let termsOfServiceURL: String?
     /// The share of the paywall's height the marketing pages take, fixed, from 0 (no pages) to 1
-    /// (the whole sheet, which pushes the purchases out of view). Values outside are clamped.
-    /// The larger it is, the sooner a short screen needs a scroll to reach the Subscribe button.
+    /// (the whole sheet). Values outside are clamped. An upper bound rather than a promise: on a
+    /// short screen or at a large text size the pages take less, so the Subscribe button stays
+    /// in view, see ``featureHeight(in:reserving:)``.
     public let featureAreaHeight: Double
     /// The app group the last confirmed entitlement is cached in, for an app with a widget, an
     /// extension or an App Intent that needs the answer in another process; they read it through
@@ -56,6 +57,29 @@ public struct PaywallConfiguration: Sendable, Equatable {
     /// foreground, so a subscription that ran out in the background locks the app at once. Costs
     /// one local StoreKit read; turn it off only for an app that refreshes on a rhythm of its own.
     public let refreshesOnForeground: Bool
+    /// Whether the subscription side carries Apple's "Redeem Code" button, for offer codes handed
+    /// out in a campaign, a press kit or a support case. StoreKit shows on its own only the offers
+    /// the App Store already knows the user is eligible for; a code someone was given has no other
+    /// way in. Off unless the app hands out codes.
+    public let showsRedeemCode: Bool
+    /// Where the app kept its own answer before it adopted ButchKit, see ``LegacyCache``.
+    public let legacyCache: LegacyCache?
+
+    /// A `Bool` in `UserDefaults` under which an app's own purchase code kept "this user pays",
+    /// before the app adopted ButchKit. Read at launch until ButchKit has an answer of its own, so
+    /// the first launch after that update shows a paying user no paywall flash. It only ever draws
+    /// the interface for a moment: StoreKit's answer replaces it, and nothing is unlocked on it
+    /// for good, see ``PaywallService/verifiedEntitlement``.
+    public struct LegacyCache: Sendable, Equatable {
+        public let key: String
+        /// The suite the key lives in, `nil` for the standard defaults.
+        public let suiteName: String?
+
+        public init(key: String, suiteName: String? = nil) {
+            self.key = key
+            self.suiteName = suiteName
+        }
+    }
 
     public init(
         subscriptionGroupID: String? = nil,
@@ -64,7 +88,9 @@ public struct PaywallConfiguration: Sendable, Equatable {
         termsOfServiceURL: String? = nil,
         featureAreaHeight: Double = 0.62,
         appGroupID: String? = nil,
-        refreshesOnForeground: Bool = true
+        refreshesOnForeground: Bool = true,
+        showsRedeemCode: Bool = false,
+        legacyCache: LegacyCache? = nil
     ) {
         assert(subscriptionGroupID != nil || !lifetimeProductIDs.isEmpty, "A paywall needs a subscription group, lifetime products, or both")
         self.featureAreaHeight = min(max(featureAreaHeight, 0), 1)
@@ -74,13 +100,27 @@ public struct PaywallConfiguration: Sendable, Equatable {
         self.termsOfServiceURL = termsOfServiceURL
         self.appGroupID = appGroupID
         self.refreshesOnForeground = refreshesOnForeground
+        self.showsRedeemCode = showsRedeemCode
+        self.legacyCache = legacyCache
     }
 
-    /// Whether the paywall shows the privacy policy and terms buttons. StoreKit shows both or
-    /// neither, so one missing URL hides the pair.
-    var hasPolicies: Bool {
-        privacyPolicyURL != nil && termsOfServiceURL != nil
+    /// How tall the marketing pages are on a sheet of the given height: their share of it, less
+    /// whatever the purchases below need to keep the Subscribe button in view. On a tall sheet
+    /// the share stands; on a short one, or at a large text size, the pages give way. Pure, so
+    /// the rule is testable without a view.
+    func featureHeight(in sheetHeight: CGFloat, reserving purchaseHeight: CGFloat) -> CGFloat {
+        min(sheetHeight * featureAreaHeight, max(sheetHeight - purchaseHeight, 0))
     }
+
+    /// The two policy pages, or `nil` unless both are set. StoreKit shows both or neither, so one
+    /// missing URL hides the pair; the lifetime side draws its own links by the same rule.
+    var policies: (privacy: String, terms: String)? {
+        guard let privacyPolicyURL, let termsOfServiceURL else { return nil }
+        return (privacyPolicyURL, termsOfServiceURL)
+    }
+
+    /// Whether the paywall shows the privacy policy and terms buttons.
+    var hasPolicies: Bool { policies != nil }
 
     /// What one verified transaction grants under this configuration. Pure, so the decision is
     /// testable without StoreKit.

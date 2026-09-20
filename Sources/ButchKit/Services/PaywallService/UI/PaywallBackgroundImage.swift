@@ -16,6 +16,8 @@ struct PaywallBackgroundImage: View {
         GeometryReader { proxy in
             Image(image)
                 .resizable()
+                // Decoration behind the page's words. Left in, VoiceOver reads the asset's name.
+                .accessibilityHidden(true)
                 .scaledToFill()
                 .frame(width: proxy.size.width, height: proxy.size.height)
                 .clipped()

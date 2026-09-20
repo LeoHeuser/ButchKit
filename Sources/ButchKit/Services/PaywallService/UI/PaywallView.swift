@@ -34,9 +34,41 @@ struct PaywallView: View {
         case oneTime
     }
 
-    /// Whether the app supplied marketing pages. They decide the paywall's look: full-bleed pages
-    /// under the status bar on a dark ground. A `featureAreaHeight` of 0 counts as no pages.
-    private var hasFeatures: Bool { !paywall.features.isEmpty && paywall.configuration.featureAreaHeight > 0 }
+    /// What the purchases under the pages need at least, so the Subscribe button stays in view:
+    /// one plan card, the button and the policy line. Grows with the text size, which is when the
+    /// button would otherwise be the first thing pushed off a short screen.
+    @ScaledMetric(relativeTo: .body) private var minimumPurchaseHeight: CGFloat = 280
+    /// The segmented control's share of that, when there is one.
+    @ScaledMetric(relativeTo: .body) private var offerPickerHeight: CGFloat = 56
+
+    /// The pages this user sees: a page about the introductory offer only while they can get it.
+    private var features: [PaywallFeature] {
+        paywall.features.filter { !$0.introOfferOnly || paywall.isEligibleForIntroOffer == true }
+    }
+
+    /// How tall the pages are on this sheet, after the purchases below have taken what they need.
+    /// At the largest accessibility text sizes that reservation can be the whole sheet, and the
+    /// pages give way entirely.
+    private var featureHeight: CGFloat {
+        paywall.configuration.featureHeight(
+            in: paywallHeight,
+            reserving: minimumPurchaseHeight + (offersBoth ? offerPickerHeight : 0)
+        )
+    }
+
+    /// Whether there are marketing pages to show. They decide the paywall's layout: full-bleed
+    /// pages under the status bar, no navigation bar, and the close and restore buttons floating
+    /// over the photo. Pages left no room for count as no pages, or those floating buttons would
+    /// sit over StoreKit's own content with nothing behind them. Before the sheet is measured the
+    /// pages are assumed to fit: a navigation bar drawn and then taken away is worse than none.
+    private var hasFeatures: Bool {
+        guard !features.isEmpty, paywall.configuration.featureAreaHeight > 0 else { return false }
+        return paywallHeight == 0 || featureHeight > 0
+    }
+
+    /// Whether any page carries a photo. Photos are shot for a dark ground with white text on
+    /// them, so they force it; pages of text alone follow the device like any other sheet.
+    private var usesDarkGround: Bool { hasFeatures && features.contains { $0.image != nil } }
 
     /// Whether the app sells lifetime products.
     private var offersOneTime: Bool { !paywall.configuration.lifetimeProductIDs.isEmpty }
@@ -60,6 +92,7 @@ struct PaywallView: View {
             // Apple's would only sync, without reading the entitlements again or saying how it went.
                 .storeButton(.hidden, for: .restorePurchases)
                 .storeButton(paywall.configuration.hasPolicies ? .visible : .hidden, for: .policies)
+                .redeemCodeButton(isVisible: paywall.configuration.showsRedeemCode)
                 .subscriptionStoreButtonLabel(.action)
             // StoreKit is the only thing that knows the group, so it counts the tiers itself:
             // one plan gets a single action button, several get a picker over one Subscribe
@@ -79,11 +112,9 @@ struct PaywallView: View {
                 } message: {
                     Text(paywall.texts.sheet.purchaseFailedMessage)
                 }
-                .alert(Text(restoreAlertTitle), isPresented: $showsRestoreAlert) {
+                .alert(Text(restoreAlert.title), isPresented: $showsRestoreAlert) {
                 } message: {
-                    if restoreOutcome == .failed {
-                        Text(paywall.texts.sheet.restoreFailedMessage)
-                    }
+                    if let message = restoreAlert.message { Text(message) }
                 }
                 .onChange(of: showsRestoreAlert) { _, isPresented in
                     // Closing the alert is the step a restore held back: the sheet closes now if
@@ -146,9 +177,9 @@ struct PaywallView: View {
             }
         }
         // The marketing pages put uncolored text on full-bleed photos shot for a dark ground,
-        // so the paywall stays dark regardless of the device appearance. Without pages there is
-        // no photo to protect and Apple's storefront follows the device like any other sheet.
-        .preferredColorScheme(hasFeatures ? .dark : nil)
+        // so with a photo the paywall stays dark regardless of the device appearance. Without one
+        // there is nothing to protect and the paywall follows the device like any other sheet.
+        .preferredColorScheme(usesDarkGround ? .dark : nil)
         // Outside the NavigationStack, so pushing a policy destination cannot fire this twice.
         .onAppear {
             paywall.paywallDidAppear(request)
@@ -181,7 +212,7 @@ struct PaywallView: View {
     private var header: some View {
         VStack(spacing: 0) {
             if hasFeatures {
-                PaywallMarketingContent(features: paywall.features, height: paywallHeight * paywall.configuration.featureAreaHeight)
+                PaywallMarketingContent(features: features, height: featureHeight)
             }
             if offersBoth {
                 // Each segment reads its own title to VoiceOver, so the picker needs no label.
@@ -215,12 +246,19 @@ struct PaywallView: View {
         }
     }
     
-    private var restoreAlertTitle: String {
+    /// The restore alert's words, decided once. Split over two switches, a title could end up
+    /// over another outcome's message, which is what grouping ``PaywallTexts/Sheet/RestoreOffline``
+    /// set out to prevent. An app that words no offline case falls back to the failure it is.
+    private var restoreAlert: (title: String, message: String?) {
+        let sheet = paywall.texts.sheet
         switch restoreOutcome {
-        case .restored: paywall.texts.sheet.restoreSucceededTitle
-        case .nothingToRestore: paywall.texts.sheet.nothingToRestoreTitle
-        case .failed: paywall.texts.sheet.restoreFailedTitle
-        case .cancelled, nil: ""
+        case .restored: return (sheet.restoreSucceededTitle, nil)
+        case .nothingToRestore: return (sheet.nothingToRestoreTitle, nil)
+        case .failed: return (sheet.restoreFailedTitle, sheet.restoreFailedMessage)
+        case .offline:
+            guard let offline = sheet.restoreOffline else { return (sheet.restoreFailedTitle, sheet.restoreFailedMessage) }
+            return (offline.title, offline.message)
+        case .cancelled, nil: return ("", nil)
         }
     }
 
@@ -290,11 +328,11 @@ struct PaywallView: View {
                 // Only this path is a fresh purchase from the paywall, and only here is the
                 // source known. A free trial start runs through here too.
                 paywall.report(.purchaseCompleted(source: request.source, productID: product.id, isIntroductoryOffer: transaction.isIntroductoryOffer))
-                paywall.handleSuccessfulPurchase(productID: transaction.productID, subscriptionGroupID: transaction.subscriptionGroupID)
+                paywall.handleSuccessfulPurchase(productID: transaction.productID, subscriptionGroupID: transaction.subscriptionGroupID, isDirectPurchase: true)
             case .pending:
                 // Ask to Buy: Apple's UI informs the user, so no app-side alert. The later
                 // approval arrives through Transaction.updates.
-                paywall.report(.purchasePending(source: request.source, productID: product.id))
+                paywall.purchaseDidPend(source: request.source, productID: product.id)
             case .userCancelled:
                 break
             @unknown default:
@@ -331,6 +369,17 @@ private extension View {
     func controlsUnderHeader() -> some View {
         if #available(iOS 18.0, macOS 15.0, *) {
             subscriptionStoreControlStyle(.picker, placement: .scrollView)
+        } else {
+            self
+        }
+    }
+
+    /// Apple's "Redeem Code" button with the subscription controls. The Mac has it from macOS 15;
+    /// before that there is no in-app redemption, and codes go through the App Store.
+    @ViewBuilder
+    func redeemCodeButton(isVisible: Bool) -> some View {
+        if #available(macOS 15.0, *) {
+            storeButton(isVisible ? .visible : .hidden, for: .redeemCode)
         } else {
             self
         }

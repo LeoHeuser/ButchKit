@@ -15,7 +15,10 @@
 import SwiftUI
 
 struct DismissSheetButton: ViewModifier {
-    let title: LocalizedStringKey
+    /// Held as `Text` so a caller inside the SDK can apply the modifier directly with a
+    /// `LocalizedStringResource`. A public overload for one cannot be added: a string literal
+    /// would then be ambiguous at every existing call site.
+    let title: Text
 
     @Environment(\.dismiss) var dismiss
 
@@ -23,8 +26,10 @@ struct DismissSheetButton: ViewModifier {
         content
             .toolbar {
                 ToolbarItem(placement: .cancellationAction) {
-                    Button(title, systemImage: "xmark") {
+                    Button {
                         dismiss()
+                    } label: {
+                        Label { title } icon: { Image(systemName: "xmark") }
                     }
                 }
             }
@@ -37,7 +42,7 @@ public extension View {
     /// - Parameter title: The button's name, from the app's catalog. The toolbar shows only the
     ///   symbol; VoiceOver reads the name.
     func sheetDismissButton(_ title: LocalizedStringKey) -> some View {
-        modifier(DismissSheetButton(title: title))
+        modifier(DismissSheetButton(title: Text(title)))
     }
 }
 

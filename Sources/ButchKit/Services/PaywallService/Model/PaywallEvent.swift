@@ -34,8 +34,13 @@ public enum PaywallEvent: Sendable, Equatable {
     /// `isIntroductoryOffer` tells a trial start from a paid purchase, so a funnel does not count
     /// every free week as revenue.
     case purchaseCompleted(source: String, productID: String, isIntroductoryOffer: Bool)
-    /// Ask to Buy: the purchase waits for approval. The later approval never reaches the paywall.
+    /// Ask to Buy: the purchase waits for a parent's approval.
     case purchasePending(source: String, productID: String)
+    /// A pending purchase was approved, minutes or days after ``purchasePending(source:productID:)``
+    /// and with the same source, so the funnel closes where it opened, also when the app was quit
+    /// in between. Never reported for a purchase that went through at once, and not for a request
+    /// older than two days, which Apple has dropped by then.
+    case purchaseApproved(source: String, productID: String)
     /// The purchase failed, and of what kind. A user backing out of the App Store sheet is not a
     /// failure and is not reported.
     case purchaseFailed(source: String, productID: String, reason: PaywallPurchaseFailure)
@@ -55,6 +60,7 @@ public enum PaywallEvent: Sendable, Equatable {
         case .purchaseStarted: "paywall.purchaseStarted"
         case .purchaseCompleted: "paywall.purchaseCompleted"
         case .purchasePending: "paywall.purchasePending"
+        case .purchaseApproved: "paywall.purchaseApproved"
         case .purchaseFailed: "paywall.purchaseFailed"
         case .verificationFailed: "paywall.verificationFailed"
         case .subscriptionStatus: "paywall.subscriptionStatus"
@@ -67,7 +73,7 @@ public enum PaywallEvent: Sendable, Equatable {
         switch self {
         case .presented(let source):
             ["source": source]
-        case .purchaseStarted(let source, let productID), .purchasePending(let source, let productID):
+        case .purchaseStarted(let source, let productID), .purchasePending(let source, let productID), .purchaseApproved(let source, let productID):
             ["source": source, "productID": productID]
         case .purchaseCompleted(let source, let productID, let isIntroductoryOffer):
             ["source": source, "productID": productID, "isIntroductoryOffer": String(isIntroductoryOffer)]

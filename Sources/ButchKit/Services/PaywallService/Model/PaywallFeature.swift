@@ -35,6 +35,11 @@ public struct PaywallFeature: Identifiable, Sendable {
     public let description: LocalizedStringResource?
     /// The photo behind the text. `nil` leaves the paywall's dark ground bare.
     public let image: ImageResource?
+    /// Whether the page speaks of the introductory offer, "One month free" and the like. Such a
+    /// page shows only to a user who can still get that offer, see
+    /// ``PaywallService/isEligibleForIntroOffer``: to anyone else it would promise something the
+    /// App Store will not give them.
+    public let introOfferOnly: Bool
 
     /// The title's key: the same for the same page however often the value is built, where a
     /// `UUID()` would be new on every render. Give two pages the same title key and they share an
@@ -44,11 +49,13 @@ public struct PaywallFeature: Identifiable, Sendable {
     public init(
         title: LocalizedStringResource,
         description: LocalizedStringResource? = nil,
-        image: ImageResource? = nil
+        image: ImageResource? = nil,
+        introOfferOnly: Bool = false
     ) {
         self.title = title
         self.description = description
         self.image = image
+        self.introOfferOnly = introOfferOnly
     }
 }
 

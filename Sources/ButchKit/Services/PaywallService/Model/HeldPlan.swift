@@ -19,6 +19,8 @@ struct HeldPlan: Equatable {
     let willAutoRenew: Bool
     /// Whether the current period is the introductory offer. Only ``phase`` reads it.
     var isInTrial = false
+    /// Whether the plan is another family member's, shared through Family Sharing.
+    var isFamilyShared = false
 
     /// The plan the row speaks about, or `nil` once none of them grants access. Family Sharing
     /// can add a second status for the same group, so a paid-up plan wins over one with a
@@ -58,7 +60,8 @@ extension HeldPlan {
             productID: transaction.productID,
             expirationDate: transaction.expirationDate,
             willAutoRenew: renewal.willAutoRenew,
-            isInTrial: transaction.isIntroductoryOffer
+            isInTrial: transaction.isIntroductoryOffer,
+            isFamilyShared: transaction.ownershipType == .familyShared
         )
     }
 }

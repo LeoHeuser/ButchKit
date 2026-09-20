@@ -15,8 +15,13 @@ public enum PaywallRestoreOutcome: Sendable, Equatable {
     case restored
     /// The App Store knows no purchase of the app's products for this account.
     case nothingToRestore
-    /// The App Store could not be reached, or the purchase it returned did not pass verification.
+    /// The purchase the App Store returned did not pass verification, or the sync failed for a
+    /// reason other than the connection.
     case failed
+    /// The App Store could not be reached. Apart from ``failed`` because the user can do something
+    /// about it, and because it is the usual case right after a reinstall: no local purchases
+    /// yet, and no connection to fetch them.
+    case offline
     /// The user backed out of the App Store sign-in. Not a failure, so nothing is shown.
     case cancelled
 
@@ -31,6 +36,9 @@ public enum PaywallRestoreOutcome: Sendable, Equatable {
         if let syncError {
             if case StoreKitError.userCancelled = syncError {
                 return .cancelled
+            }
+            if PaywallPurchaseFailure(syncError) == .network {
+                return .offline
             }
             return .failed
         }

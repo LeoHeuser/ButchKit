@@ -33,10 +33,17 @@ public struct PaywallEntitlementCache: Sendable {
 
     /// The app group the cache lives in, `nil` for the app's own defaults.
     public let appGroupID: String?
+    /// Where the app kept the answer before it adopted ButchKit, see ``PaywallConfiguration/LegacyCache``.
+    let legacy: PaywallConfiguration.LegacyCache?
 
     /// - Parameter appGroupID: The same group as in the app's ``PaywallConfiguration``.
     public init(appGroupID: String? = nil) {
+        self.init(appGroupID: appGroupID, legacy: nil)
+    }
+
+    init(appGroupID: String?, legacy: PaywallConfiguration.LegacyCache?) {
         self.appGroupID = appGroupID
+        self.legacy = legacy
     }
 
     /// The last confirmed entitlement, or `nil` when none was ever written.
@@ -46,21 +53,73 @@ public struct PaywallEntitlementCache: Sendable {
         Self.entitlement(in: defaults)
             ?? Self.entitlement(in: .standard)
             ?? (UserDefaults.standard.bool(forKey: Self.legacyKey) ? .subscription : nil)
+            ?? legacyEntitlement
+    }
+
+    /// What the app's own purchase code left behind, read until ButchKit has written an answer of
+    /// its own. Only ever a `true`: a `false` there says as little as a missing key.
+    private var legacyEntitlement: PaywallEntitlement? {
+        guard let legacy else { return nil }
+        return Self.store(legacy.suiteName).bool(forKey: legacy.key) ? .subscription : nil
+    }
+
+    /// What ButchKit itself last wrote, in its own store and without the fallbacks ``entitlement``
+    /// reads. The service seeds its write dedupe from this, so an answer that came from an older
+    /// store or from the app's own key is still written into this one, once StoreKit confirms it.
+    var ownEntitlement: PaywallEntitlement? {
+        Self.entitlement(in: defaults)
     }
 
     func write(_ entitlement: PaywallEntitlement) {
         defaults.set(entitlement.rawValue, forKey: Self.key)
     }
 
+    /// An Ask to Buy purchase waiting for a parent. Kept next to the entitlement because the
+    /// approval usually arrives after the app was quit, and the funnel should still close with
+    /// the source it opened with.
+    var pendingPurchase: PaywallPendingPurchase? {
+        defaults.data(forKey: Self.pendingPurchaseKey).flatMap { try? JSONDecoder().decode(PaywallPendingPurchase.self, from: $0) }
+    }
+
+    func write(pendingPurchase: PaywallPendingPurchase?) {
+        if let pendingPurchase, let data = try? JSONEncoder().encode(pendingPurchase) {
+            defaults.set(data, forKey: Self.pendingPurchaseKey)
+        } else {
+            defaults.removeObject(forKey: Self.pendingPurchaseKey)
+        }
+    }
+
+    static let pendingPurchaseKey = "design.heuser.ButchKit.paywall.pendingPurchase"
+
     // Looked up on every access: `UserDefaults` is not `Sendable`, so it is not stored. A suite
     // name is refused only for the app's own domain; a group the app is not entitled to still
     // yields a store, one nothing else can read, so check a group that seems not to work against
     // the entitlement rather than expecting a fallback here.
     private var defaults: UserDefaults {
-        appGroupID.flatMap(UserDefaults.init(suiteName:)) ?? .standard
+        Self.store(appGroupID)
+    }
+
+    private static func store(_ suiteName: String?) -> UserDefaults {
+        suiteName.flatMap(UserDefaults.init(suiteName:)) ?? .standard
     }
 
     private static func entitlement(in defaults: UserDefaults) -> PaywallEntitlement? {
         defaults.string(forKey: key).flatMap(PaywallEntitlement.init(rawValue:))
+    }
+}
+
+/// An Ask to Buy purchase that waits for approval: what was asked for, from where, and when.
+struct PaywallPendingPurchase: Codable, Equatable {
+    let source: String
+    let productID: String
+    let date: Date
+
+    /// Apple drops a request the family organizer has not answered within 24 hours. Twice that,
+    /// so an approval given at the last minute and delivered late still counts, while a request
+    /// long gone cannot turn a later, ordinary purchase into an "approval".
+    static let lifetime: TimeInterval = 48 * 60 * 60
+
+    func isCurrent(at now: Date) -> Bool {
+        now.timeIntervalSince(date) < Self.lifetime
     }
 }

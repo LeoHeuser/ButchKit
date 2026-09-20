@@ -30,7 +30,8 @@ public enum PaywallPurchaseFailure: String, Sendable {
 
     init(_ error: any Error) {
         switch error {
-        case StoreKitError.networkError: self = .network
+        // StoreKit wraps a connection error in its own, but not every path does.
+        case StoreKitError.networkError, is URLError: self = .network
         case StoreKitError.notAvailableInStorefront: self = .notAvailableInStorefront
         case StoreKitError.systemError: self = .system
         case Product.PurchaseError.productUnavailable: self = .productUnavailable

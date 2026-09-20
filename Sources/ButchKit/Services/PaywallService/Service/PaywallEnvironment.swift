@@ -9,18 +9,37 @@ import SwiftUI
 
 /// Creates the service and keeps it for the life of the view, for an app that does not own one.
 struct PaywallEnvironmentModifier: ViewModifier {
-    @State private var service: PaywallService
+    let configuration: PaywallConfiguration
+    let texts: PaywallTexts
+    let features: [PaywallFeature]
+    let onEvent: ((PaywallEvent) -> Void)?
 
-    init(configuration: PaywallConfiguration, texts: PaywallTexts, features: [PaywallFeature], onEvent: ((PaywallEvent) -> Void)?) {
-        let service = PaywallService(configuration: configuration, texts: texts, features: features)
-        // Set before the first `initialize()`, so the launch's subscription status never goes
-        // out to a listener that has not arrived yet.
-        service.onEvent = onEvent
-        _service = State(initialValue: service)
-    }
+    @State private var holder = PaywallServiceHolder()
 
     func body(content: Content) -> some View {
+        let service = holder.service {
+            let service = PaywallService(configuration: configuration, texts: texts, features: features)
+            // Set before the first `initialize()`, so the launch's subscription status never goes
+            // out to a listener that has not arrived yet.
+            service.onEvent = onEvent
+            return service
+        }
         content.modifier(PaywallRootModifier(service: service))
+    }
+}
+
+/// Builds the service once, on the first body pass. SwiftUI makes the modifier anew each time the
+/// root is evaluated and keeps only the first `@State` value: a service built in the modifier's
+/// `init` would be built and thrown away on every pass, each one reading the cache and logging.
+@MainActor
+final class PaywallServiceHolder {
+    private var service: PaywallService?
+
+    func service(_ make: () -> PaywallService) -> PaywallService {
+        if let service { return service }
+        let made = make()
+        service = made
+        return made
     }
 }
 
@@ -54,11 +73,13 @@ struct PaywallSheetModifier: ViewModifier {
 
     /// This host's identity, fixed for the life of the view.
     @State private var hostID = UUID()
+    @State private var managesSubscription = false
 
+    @ViewBuilder
     func body(content: Content) -> some View {
-        content
+        let host = content
             .sheet(
-                item: Binding(
+                item: Binding<PaywallRequest?>(
                     get: { paywall.presents(hostID) ? paywall.presentedRequest : nil },
                     set: { request in
                         if request == nil { paywall.dismissPaywall() }
@@ -70,6 +91,29 @@ struct PaywallSheetModifier: ViewModifier {
             }
             .onAppear { paywall.registerSheetHost(hostID) }
             .onDisappear { paywall.unregisterSheetHost(hostID) }
+
+        // After a lifetime purchase next to a subscription that still renews, once the paywall has
+        // closed. From the host that presented it, the only one free to present again. Only an app
+        // that words the alert carries it, and StoreKit's management sheet with it: without the
+        // words there is no path here, and every host would hold both for a case it cannot reach.
+        if let texts = paywall.texts.subscriptionOverlap {
+            host
+                .alert(
+                    texts.title,
+                    isPresented: Binding<Bool>(
+                        get: { paywall.presents(hostID) && paywall.showsSubscriptionOverlap },
+                        set: { if !$0 { paywall.showsSubscriptionOverlap = false } }
+                    )
+                ) {
+                    Button(texts.manage) { managesSubscription = true }
+                    Button(texts.later, role: .cancel) {}
+                } message: {
+                    Text(texts.message)
+                }
+                .modifier(ManageSubscriptionModifier(isRequested: $managesSubscription, subscriptionGroupID: paywall.configuration.subscriptionGroupID))
+        } else {
+            host
+        }
     }
 }
 

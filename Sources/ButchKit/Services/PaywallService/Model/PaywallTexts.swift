@@ -43,10 +43,11 @@ import SwiftUI
 /// )
 /// ```
 ///
-/// Three groups, by where the words appear, and an app words only what it shows. ``Sheet`` is the
-/// paywall itself and always needed. ``OfferTabs`` is the segmented control, which exists only
-/// when lifetime products are sold next to a subscription. ``StatusRow`` is the settings row,
-/// for an app that uses ``PaywallStatusRow`` or wants the same words in a row of its own.
+/// Groups, by where the words appear, and an app words only what it shows. ``Sheet`` is the
+/// paywall itself and always needed. ``OfferTabs`` is the segmented control and
+/// ``SubscriptionOverlap`` the alert after a lifetime purchase, which both exist only when
+/// lifetime products are sold next to a subscription. ``StatusRow`` is the settings row, for an
+/// app that uses ``PaywallStatusRow`` or wants the same words in a row of its own.
 ///
 /// Three shapes, by what the string is. A plain label is a `LocalizedStringResource`, written as
 /// a string literal and looked up in the app's default table. An accessibility label, a hint or
@@ -67,11 +68,21 @@ public struct PaywallTexts: Sendable {
     /// The settings row. Needed by ``PaywallStatusRow``; without it the row stays empty, and the
     /// log says so.
     public let statusRow: StatusRow?
+    /// The alert after a lifetime purchase next to a subscription that still renews. Only for an
+    /// app that sells both; without it no alert shows, and the settings row alone leads to the
+    /// cancellation.
+    public let subscriptionOverlap: SubscriptionOverlap?
 
-    public init(sheet: Sheet, offerTabs: OfferTabs? = nil, statusRow: StatusRow? = nil) {
+    public init(
+        sheet: Sheet,
+        offerTabs: OfferTabs? = nil,
+        statusRow: StatusRow? = nil,
+        subscriptionOverlap: SubscriptionOverlap? = nil
+    ) {
         self.sheet = sheet
         self.offerTabs = offerTabs
         self.statusRow = statusRow
+        self.subscriptionOverlap = subscriptionOverlap
     }
 
     // MARK: - Paywall sheet
@@ -102,6 +113,17 @@ public struct PaywallTexts: Sendable {
         /// Message of that alert. One text for both causes, so it asks to check the connection and try
         /// again rather than naming either.
         public let restoreFailedMessage: String
+        /// The alert after a restore that could not reach the App Store. Without it that case
+        /// reads as ``restoreFailedTitle`` and ``restoreFailedMessage``, which then have to cover
+        /// a missing connection too. One group rather than two optionals, so a title cannot end
+        /// up over the generic message.
+        public let restoreOffline: RestoreOffline?
+        /// What VoiceOver reads for a lifetime product the user already owns, whose Buy button
+        /// gives way to a checkmark: "Purchased". Without it the checkmark reads as the price.
+        public let purchasedLabel: String?
+        /// What the lifetime side says when none of its products load: no connection, or a store
+        /// outage. Without it that side stays empty, and only the log says why.
+        public let productsUnavailable: ProductsUnavailable?
 
         public init(
             dismiss: LocalizedStringResource,
@@ -113,7 +135,10 @@ public struct PaywallTexts: Sendable {
             restoreSucceededTitle: String,
             nothingToRestoreTitle: String,
             restoreFailedTitle: String,
-            restoreFailedMessage: String
+            restoreFailedMessage: String,
+            restoreOffline: RestoreOffline? = nil,
+            purchasedLabel: String? = nil,
+            productsUnavailable: ProductsUnavailable? = nil
         ) {
             self.dismiss = dismiss
             self.privacyPolicyTitle = privacyPolicyTitle
@@ -125,6 +150,36 @@ public struct PaywallTexts: Sendable {
             self.nothingToRestoreTitle = nothingToRestoreTitle
             self.restoreFailedTitle = restoreFailedTitle
             self.restoreFailedMessage = restoreFailedMessage
+            self.restoreOffline = restoreOffline
+            self.purchasedLabel = purchasedLabel
+            self.productsUnavailable = productsUnavailable
+        }
+
+        /// Title, message and retry button of the state shown when no lifetime product loads,
+        /// worded together or not at all.
+        public struct ProductsUnavailable: Sendable {
+            public let title: String
+            /// Asks to check the connection and try again: the usual cause is a missing one.
+            public let message: String
+            /// The button that loads the products again.
+            public let retry: LocalizedStringResource
+
+            public init(title: String, message: String, retry: LocalizedStringResource) {
+                self.title = title
+                self.message = message
+                self.retry = retry
+            }
+        }
+
+        /// Title and message of the offline restore alert, worded together or not at all.
+        public struct RestoreOffline: Sendable {
+            public let title: String
+            public let message: String
+
+            public init(title: String, message: String) {
+                self.title = title
+                self.message = message
+            }
         }
     }
 
@@ -139,6 +194,30 @@ public struct PaywallTexts: Sendable {
         public init(subscription: LocalizedStringResource, oneTime: LocalizedStringResource) {
             self.subscription = subscription
             self.oneTime = oneTime
+        }
+    }
+
+    // MARK: - Lifetime next to a subscription
+
+    /// A user who buys a lifetime product while their subscription still renews keeps paying for
+    /// both, and no app can cancel a subscription for them. Once the paywall has closed, this alert
+    /// says so and leads to the system's subscription management.
+    public struct SubscriptionOverlap: Sendable {
+        /// The alert's title, for example "Your subscription is still running".
+        public let title: String
+        /// What to do about it: the lifetime purchase covers everything, the subscription renews
+        /// until it is cancelled.
+        public let message: String
+        /// The button into the system's subscription management.
+        public let manage: LocalizedStringResource
+        /// The button that closes the alert and leaves the subscription alone.
+        public let later: LocalizedStringResource
+
+        public init(title: String, message: String, manage: LocalizedStringResource, later: LocalizedStringResource) {
+            self.title = title
+            self.message = message
+            self.manage = manage
+            self.later = later
         }
     }
 

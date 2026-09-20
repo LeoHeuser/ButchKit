@@ -24,10 +24,14 @@ public struct PaywallStatus {
     /// What happens next with the subscription. Only for ``PaywallEntitlement/subscription``: a
     /// lifetime purchase has no renewal and no end.
     public let detail: SubscriptionDetail?
-    /// Whether to offer ``manageSubscription``: always for a subscriber, and for a lifetime owner
+    /// Whether to offer ``manageSubscription``: for a subscriber on a plan of their own, and for a lifetime owner
     /// only while a subscription still renews next to the purchase, the one thing they could
     /// otherwise keep paying for without finding a way out.
     public let canManageSubscription: Bool
+    /// Whether what the user holds is another family member's, shared through Family Sharing.
+    /// Such a user cannot manage or cancel it, so word support and settings accordingly: "your
+    /// family's plan" rather than "your plan".
+    public let isFamilyShared: Bool
     /// Opens the paywall, carrying the reader's source.
     public let showPaywall: @MainActor () -> Void
     /// Opens the system's own subscription management: the sheet on iPhone and iPad, the App
@@ -40,15 +44,16 @@ public struct PaywallStatus {
 
     /// Decides the status from what StoreKit reported. Pure, so tests feed it without StoreKit.
     ///
-    /// `loadedName` carries the product it was loaded for and is dropped for any other, so a plan
-    /// change never shows the old plan's name.
+    /// `planNames` is looked up by the product held, so a plan change never shows the old plan's
+    /// name.
     init(
         entitlement: PaywallEntitlement,
         isInitialized: Bool,
         hasCachedEntitlement: Bool,
         heldPlan: HeldPlan?,
         lifetimeProductID: String?,
-        loadedName: (productID: String, name: String)?,
+        lifetimeIsFamilyShared: Bool,
+        planNames: [String: String],
         showPaywall: @escaping @MainActor () -> Void,
         manageSubscription: @escaping @MainActor () -> Void
     ) {
@@ -58,27 +63,54 @@ public struct PaywallStatus {
             productID = nil
             detail = nil
             canManageSubscription = false
+            isFamilyShared = false
         case .subscription:
             productID = heldPlan?.productID
             detail = heldPlan.flatMap {
                 SubscriptionDetail(state: $0.state, willAutoRenew: $0.willAutoRenew, expirationDate: $0.expirationDate)
             }
-            canManageSubscription = true
+            // A family member's subscription is not this user's to cancel, the same rule the
+            // lifetime case applies below.
+            canManageSubscription = heldPlan?.isFamilyShared != true
+            isFamilyShared = heldPlan?.isFamilyShared == true
         case .lifetime:
-            // TODO: Revisit with purchase groups. The configuration should say which App Store Connect
-            // subscriptions and one-time purchases belong together, so the paywall can resolve the overlap on
-            // its own: the one-time purchase replaces the subscription, which then does not keep running.
-            // StoreKit lets no app cancel a subscription itself, so "replaces" means leading the user to the
-            // cancellation, for example right after the one-time purchase.
+            // StoreKit lets no app cancel a subscription, so a lifetime purchase cannot replace one.
+            // What it can do is lead there: ``PaywallTexts/SubscriptionOverlap`` right after the
+            // purchase, and the Manage button here for as long as the subscription renews.
             productID = lifetimeProductID
             detail = nil
-            canManageSubscription = heldPlan?.willAutoRenew == true
+            // A family member's subscription is not this user's to cancel.
+            canManageSubscription = heldPlan?.willAutoRenew == true && heldPlan?.isFamilyShared != true
+            isFamilyShared = lifetimeIsFamilyShared
         }
         self.productID = productID
         self.entitlement = entitlement
         self.isLoading = entitlement == .none && !isInitialized && !hasCachedEntitlement
-        self.planName = loadedName.flatMap { $0.productID == productID ? $0.name : nil }
+        self.planName = productID.flatMap { planNames[$0] }
         self.showPaywall = showPaywall
         self.manageSubscription = manageSubscription
     }
+
+#if DEBUG
+    /// A status with fixed answers, for the preview of a row the app draws itself on
+    /// ``PaywallStatusReader``. The two actions do nothing.
+    public init(
+        previewEntitlement: PaywallEntitlement,
+        planName: String? = nil,
+        detail: SubscriptionDetail? = nil,
+        canManageSubscription: Bool = false,
+        isFamilyShared: Bool = false,
+        isLoading: Bool = false
+    ) {
+        self.entitlement = previewEntitlement
+        self.isLoading = isLoading
+        self.planName = planName
+        self.detail = detail
+        self.canManageSubscription = canManageSubscription
+        self.isFamilyShared = isFamilyShared
+        self.showPaywall = {}
+        self.manageSubscription = {}
+        self.productID = nil
+    }
+#endif
 }
