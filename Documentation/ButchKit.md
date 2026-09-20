@@ -100,6 +100,7 @@ Every type is documented in code. This is the map.
 - `View.useContentHeightPresentationDetent` — sizes a sheet to its content.
 - `View.onShake(isEnabled:respectsShakeToUndoSetting:perform:)` — runs an action when the device is shaken (iOS only).
 - `StringTable`, `Text.init(error:)` — which catalog a string resolves in.
+- `Device` — iPhone, iPad or Mac: `@Environment(\.device)` in views, `Device.current` everywhere else. A hardware answer, not a layout one.
 
 ### Token utility
 
