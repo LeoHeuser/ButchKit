@@ -517,7 +517,13 @@ public final class PaywallService {
     /// and a host counted twice would leave the paywall silent for the rest of the session.
     func registerSheetHost(_ hostID: UUID, sceneID: UUID? = nil) {
         guard !sheetHosts.contains(where: { $0.id == hostID }) else { return }
+        let wasEmpty = sheetHosts.isEmpty
         sheetHosts.append((hostID, sceneID))
+        // A request that arrived before any host was on screen starts its clock now, see
+        // ``watchPresentation(of:)``. Never one that is already up: its clock ran long ago.
+        if wasEmpty, let request = presentedRequest, shownRequestID != request.id {
+            watchPresentation(of: request)
+        }
     }
 
     func unregisterSheetHost(_ hostID: UUID) {
@@ -601,6 +607,11 @@ public final class PaywallService {
     /// that lacks `.paywallSheet()`. Left standing, the request would bring the paywall up out of
     /// nowhere once that sheet closes.
     private func watchPresentation(of request: PaywallRequest) {
+        // Not before there is anything that could present it: an App Intent or a notification can
+        // ask before the first scene is on screen, and a clock running against an empty app would
+        // drop the request before any host could pick it up. Started by
+        // ``registerSheetHost(_:sceneID:)`` once the first one appears.
+        guard !sheetHosts.isEmpty else { return }
         let timeout = presentationTimeout
         Task { [weak self] in
             try? await Task.sleep(for: timeout)

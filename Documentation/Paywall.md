@@ -279,7 +279,7 @@ Button("button.newScript", systemImage: "plus") {
 
 `require` is the default for anything the user *does*. `present` is for places that only *show* the offer: a Settings row, a locked hint. Closing the paywall without buying drops the deferred action, nothing runs behind the user's back.
 
-A request that no sheet picks up within five seconds is dropped and logged as an error. That is always the same mistake, a `present` from inside a sheet that lacks `.paywallSheet()`, see below. Dropping it matters: left standing, the request would bring the paywall up out of nowhere once that sheet closes.
+A request that no sheet picks up within five seconds is dropped and logged as an error. The five seconds start with the first sheet host, not with the request, so a `present(source:)` from an App Intent or a notification on a cold launch waits for the scene rather than being dropped before it exists. That is always the same mistake, a `present` from inside a sheet that lacks `.paywallSheet()`, see below. Dropping it matters: left standing, the request would bring the paywall up out of nowhere once that sheet closes.
 
 `source` is the app's own short name for where the user hit the lock: `newScript`, `lockedScript`, `pasteButton`, `settings`. It is carried on every event, so analytics can tell which entry point earns the conversions. Use `lowerCamelCase`, keep the set small, and keep it stable across releases.
 

@@ -721,6 +721,9 @@ struct PaywallServiceTests {
     func dropsUnshownRequest() async throws {
         let service = makeService()
         service.presentationTimeout = .milliseconds(20)
+        // The root host is on screen; what covers it is a sheet without `.paywallSheet()`, which
+        // is the case this gives up on.
+        service.registerSheetHost(UUID())
         var ran = false
         service.require(source: "settings") { ran = true }
         try await Task.sleep(for: .milliseconds(200))
@@ -731,10 +734,30 @@ struct PaywallServiceTests {
         clearCache()
     }
 
+    /// A `present(source:)` from an App Intent or a notification can land before the first scene
+    /// is on screen. A clock running against an empty app would drop it before anything could
+    /// show it, and the user would be left with a button that did nothing.
+    @Test("Holds a request made before any sheet host is on screen")
+    func holdsARequestUntilAHostAppears() async throws {
+        let service = makeService()
+        service.presentationTimeout = .milliseconds(20)
+        service.present(source: "intent")
+        try await Task.sleep(for: .milliseconds(200))
+        #expect(service.presentedRequest?.source == "intent")
+
+        let root = UUID()
+        service.registerSheetHost(root)
+        #expect(service.presents(root))
+        // The clock starts with the host: a request nothing picks up is still given up on.
+        try await Task.sleep(for: .milliseconds(200))
+        #expect(service.presentedRequest == nil)
+    }
+
     @Test("Keeps a request whose sheet came up")
     func keepsShownRequest() async throws {
         let service = makeService()
         service.presentationTimeout = .milliseconds(20)
+        service.registerSheetHost(UUID())
         service.present(source: "settings")
         service.paywallDidAppear(try #require(service.presentedRequest))
         try await Task.sleep(for: .milliseconds(200))
