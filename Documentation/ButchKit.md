@@ -69,7 +69,7 @@ Every type is documented in code. This is the map.
 
 - `View.paywallEnvironment(_:texts:features:)` — root-level integration. Creates the service, injects it, refreshes on foreground and attaches the paywall sheet.
 - `View.paywallEnvironment(_:)` — the same for a `PaywallService` the app owns: several windows, or code outside the views that needs the answer.
-- `PaywallService` — `hasAccess` and `entitlement`, fed by StoreKit 2, `verifiedEntitlement` once StoreKit has confirmed them, `present(source:)` and `require(source:_:)` to show the paywall from anywhere, and `restorePurchases()` for a settings row.
+- `PaywallService` — `hasAccess` and `entitlement`, fed by StoreKit 2, `verifiedEntitlement` once StoreKit has confirmed them, `isLocked` for drawing the locked state, `onVerifiedEntitlementChange` for whatever follows the entitlement outside a view, `present(source:)` and `require(source:_:)` to show the paywall from anywhere, and `restorePurchases()` for a settings row.
 - `PaywallConfiguration` — the subscription group and the lifetime products, at least one of the two, policy URLs, the marketing pages' height and the app group for the cache.
 - `PaywallEntitlementCache` — the last confirmed entitlement, readable from a widget, an extension or an App Intent.
 - `PaywallEntitlement` — `none`, `subscription` or `lifetime`.

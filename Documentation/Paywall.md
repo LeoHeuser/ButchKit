@@ -166,7 +166,7 @@ struct MyApp: App {
 }
 ```
 
-Everything else stays the same: views read `@Environment(PaywallService.self)`, and the modifier starts the service, however many scenes carry it. What needs it outside a view gets it through its initializer, like any other dependency.
+Everything else stays the same: views read `@Environment(PaywallService.self)`, and the modifier starts the service, however many scenes carry it. The paywall comes up in the window that asked for it: each scene's root modifier and every `.paywallSheet()` know their window, and the one the user is in presents. A Mac app's `Settings` scene takes the same `.paywallEnvironment(paywall)` as its windows, not a second service. What needs it outside a view gets it through its initializer, like any other dependency.
 
 ### Widgets, extensions and App Intents
 
@@ -178,7 +178,14 @@ let entitlement = PaywallEntitlementCache(appGroupID: "group.design.heuser.App")
 
 `nil` means not known yet, never "does not pay": the app has not run since the install. Treat it as the app treats its own loading state, not as a locked feature. The value is as old as the app's last entitlement check, so a subscription that ran out since still reads as one until the app is opened again. Only confirmed answers are ever written, so the extension never finds a guess. An app that adopts a group in an update keeps the answer it cached before.
 
+With a group named, every change of the answer also reloads the app's widget timelines, so a widget unlocks the moment the purchase goes through rather than at its next refresh. There is no `WidgetCenter` call to write.
+
 An extension that does not link ButchKit reads the same value by hand: the string under `design.heuser.ButchKit.paywall.entitlement` in the group's `UserDefaults`, one of `none`, `subscription` or `lifetime`. Both are a stable contract.
+
+```swift
+let raw = UserDefaults(suiteName: "group.design.heuser.App")?.string(forKey: "design.heuser.ButchKit.paywall.entitlement")
+let pays = raw.map { $0 != "none" }   // nil: not known yet, never "does not pay"
+```
 
 ### Coming from purchase code of the app's own
 
@@ -230,6 +237,28 @@ Until that first check, `hasAccess` and `entitlement` answer from the cache. Tha
 `verifiedEntitlement` is `nil` until StoreKit has answered, and `nil` means "not known yet", never "free". Code that stores it waits for a value rather than writing `none`.
 
 `require(source:_:)` decides on the verified answer by itself. Called before the first check is done, it waits for it, a moment at launch, and then either runs the action or shows the paywall. An edited cache opens nothing, and a subscriber on a fresh install is not shown a paywall.
+
+### Drawing the locked state
+
+Lock badges, banners and read-only content follow `isLocked`, not `!hasAccess`. It is `true` once it is known that the user does not pay, from StoreKit or from the answer the last launch left behind, and `false` while nothing is known at all. A returning free user sees the lock at once; a subscriber who just reinstalled never sees one flash by. It is for looks only: what a tap does is still `hasAccess` or `require`.
+
+```swift
+if paywall.isLocked { UnlockBanner() }
+```
+
+### Reacting to the entitlement
+
+Whatever has to follow the entitlement outside the screen hangs on one modifier: a recording limit in a capture pipeline, a TipKit parameter, scheduled notifications, a value of the app's own for an extension.
+
+```swift
+RootView()
+    .onVerifiedEntitlementChange { entitlement in
+        camera.recordingLimit = entitlement == .none ? .free : .unlimited
+    }
+    .paywallEnvironment(paywallConfig, texts: paywallTexts)
+```
+
+It runs once StoreKit has answered and again on every change: a purchase, a restore, a subscription running out, a refund. It never runs with the cached answer. Do not write an `onChange` over `hasAccess` for this: before the first check it reports the cache, and a subscriber on a fresh install would be written down as not paying.
 
 The cache is not a trust boundary, and there is no server behind any of this: StoreKit 2's on-device verification is the source of truth. That is the right weight for apps whose paid features run on the device. A feature that costs money to serve needs its own server-side check.
 
@@ -594,7 +623,7 @@ Deliberately, to stay one system:
 2. **`PayWallFeature`** is `PaywallFeature`. The old spelling still compiles, with a deprecation and a fix-it.
 3. **`onEvent`**: replace the `switch` with `signal(event.name, parameters: event.parameters)`, or add a `default` and the new associated values: the new `.purchaseApproved`, `productID` on `.purchasePending` and `.purchaseFailed`, `isIntroductoryOffer` on `.purchaseCompleted`, and `reason` as a `PaywallPurchaseFailure` instead of a `String`. Mind that the parameter keys are now `source` and `productID`; keep a `switch` if the dashboards depend on the old names.
 4. **Custom rows on `PaywallStatusReader`**: `paywall.texts.offer` and its siblings moved to `paywall.texts.statusRow`, or to a `PaywallTexts.StatusRow` constant of the app's own. Add the `status.isLoading` case.
-5. **Delete what the SDK now does.** A `scenePhase` handler that calls `refresh()`. A detached or unstructured task around `refresh()`. A window of grace after a purchase. A `subscriptionStatusTask` that triggers a refresh. A mirror of the entitlement into an app group: set `appGroupID` and read `PaywallEntitlementCache` in the extension instead. Any `isInitialized && hasAccess` of the app's own: that is `hasVerifiedAccess`.
+5. **Delete what the SDK now does.** A `scenePhase` handler that calls `refresh()`. A detached or unstructured task around `refresh()`. A window of grace after a purchase. A `subscriptionStatusTask` that triggers a refresh. A mirror of the entitlement into an app group: set `appGroupID` and read `PaywallEntitlementCache` in the extension instead. Any `isInitialized && hasAccess` of the app's own: that is `hasVerifiedAccess`. An `onChange` that pushes the entitlement into a service, a tip or an extension: that is `onVerifiedEntitlementChange`. A `WidgetCenter` reload on the flip: automatic with `appGroupID`. An `isInitialized && !hasAccess` that decides whether a banner or a lock shows: that is `isLocked`. A second `paywallEnvironment(config, …)` on a Mac app's `Settings` scene: own the service and hand the same one to both.
 6. **Removed**: `hasSubscription` (use `hasAccess`), and `handleSuccessfulPurchase` from the public API. No app has a reason to call it; it granted access on two strings.
 7. **Several windows, or a pipeline that needs the answer**: own the service, see Setup.
 8. **Optional**: a "Restore Purchases" row in the settings, see above. An app that sells lifetime products words `sheet.productsUnavailable`, or that side is empty when nothing loads.
@@ -606,8 +635,10 @@ A compact checklist for anyone, human or AI, touching the paywall in a ButchKit 
 - The paywall is defined in `Paywall.swift` and installed once with `.paywallEnvironment(_:texts:features:)` on the root. Nowhere else.
 - Views read the service with `@Environment(PaywallService.self)`. Only an app with several windows, or with code outside its views that needs the answer, constructs one: once, in the `App`, handed to `.paywallEnvironment(_:)` on every scene and passed on by initializer. Never a second instance, never a global.
 - Gate views on `paywall.hasAccess`. Never read StoreKit or `Transaction` for the subscription state.
+- Draw locks, banners and read-only states from `paywall.isLocked`, never from `!hasAccess` or an `isInitialized` check of the app's own.
+- Whatever follows the entitlement outside a view, a service's limit, a tip parameter, notifications, hangs on `.onVerifiedEntitlementChange`. Never an `onChange` over `hasAccess`.
 - Anything that outlasts the screen reads `verifiedEntitlement` or `hasVerifiedAccess`: what is stored, synced, sent to a server or reported. `nil` means not known yet; never write it down as "free".
-- A widget, an extension or an App Intent reads `PaywallEntitlementCache` with the configuration's `appGroupID`. Never mirror the entitlement into a key of the app's own.
+- A widget, an extension or an App Intent reads `PaywallEntitlementCache` with the configuration's `appGroupID`. Never mirror the entitlement into a key of the app's own, and never reload widget timelines for it: the service does.
 - Never write a `scenePhase` handler that refreshes the paywall, and never wrap `refresh()` in a detached task. The root modifier refreshes on foreground, and `refresh()` is safe under cancellation.
 - Declare `paywallConfig`, `paywallTexts` and `paywallFeatures` as file-scope `let` constants, never as computed properties.
 - Forward analytics with `event.name` and `event.parameters`. A `switch` over `PaywallEvent` always has a `default`.

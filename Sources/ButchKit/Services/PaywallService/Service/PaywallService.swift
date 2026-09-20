@@ -66,6 +66,7 @@
 import Foundation
 import OSLog
 import StoreKit
+import WidgetKit
 
 @MainActor
 @Observable
@@ -100,6 +101,17 @@ public final class PaywallService {
 
     /// ``hasAccess`` once StoreKit has answered, `false` until then.
     public var hasVerifiedAccess: Bool { isInitialized && hasAccess }
+
+    /// Whether to draw the locked state: lock badges, banners, read-only content. `true` once it is
+    /// known that the user does not pay, from StoreKit or from the answer the last launch left
+    /// behind. `false` for a paying user, and while nothing is known at all, the first moment after
+    /// an install, so a subscriber who just reinstalled never sees a lock flash by. For looks only:
+    /// gate actions on ``hasAccess`` or ``require(source:_:)``.
+    ///
+    /// The other side of ``PaywallStatus/isLoading``, which draws the spinner for that same first
+    /// moment. Both rest on `isInitialized || hasCachedEntitlement`: change what counts as known
+    /// and they have to move together.
+    public var isLocked: Bool { !hasAccess && (isInitialized || hasCachedEntitlement) }
 
     /// `true` once the first `Transaction.currentEntitlements` check has completed after launch.
     /// Hold a launch gate on this if the first screen depends on the subscription.
@@ -145,7 +157,7 @@ public final class PaywallService {
     /// A lifetime purchase went through next to a renewing subscription, see ``showsSubscriptionOverlap``.
     private var subscriptionOverlapIsDue = false
     /// A `require` that arrived before StoreKit had answered, decided by ``markInitialized()``.
-    private var heldRequirement: (source: String, action: () -> Void)?
+    private var heldRequirement: (source: String, sceneID: UUID?, action: () -> Void)?
     private var updatesTask: Task<Void, Never>?
     private var statusUpdatesTask: Task<Void, Never>?
     /// The last refresh started. Each one runs behind the one before, see ``refresh()``.
@@ -162,9 +174,17 @@ public final class PaywallService {
     /// slow would close a paywall the user was about to see, and a `present(source:)` from an App
     /// Intent or a notification can land before the scene is on screen. Changed in tests.
     var presentationTimeout: Duration = .seconds(5)
-    /// The sheet hosts on screen, the innermost last. The root modifier registers one and every
-    /// `View.paywallSheet()` another, see ``presents(_:)``.
-    private var sheetHosts: [UUID] = []
+    /// The sheet hosts on screen, the innermost last, each with the scene it belongs to. The root
+    /// modifier registers one and every `View.paywallSheet()` another, see ``presents(_:)``.
+    private var sheetHosts: [(id: UUID, sceneID: UUID?)] = []
+    /// The scene whose window the user is in, see ``sceneDidBecomeActive(_:)``. Not observed: it
+    /// only stamps the next request, and a window coming forward must not re-render every host.
+    @ObservationIgnored private var activeSceneID: UUID?
+    /// The scene of the last request. Outlives the request, so the alert after the paywall comes
+    /// up in the same window.
+    private var presentationSceneID: UUID?
+    /// Tells the widgets to read the cache again. Replaced in tests.
+    @ObservationIgnored var reloadWidgets: () -> Void = { WidgetCenter.shared.reloadAllTimelines() }
     /// The last value handed to the cache, so an unchanged answer is not written again, see
     /// ``setEntitlement(_:)``. Starts as what the launch found, `nil` when it found nothing.
     private var lastWrittenEntitlement: PaywallEntitlement?
@@ -306,7 +326,9 @@ public final class PaywallService {
         isInitialized = true
         if let held = heldRequirement {
             heldRequirement = nil
-            require(source: held.source, held.action)
+            // In the window that asked, not whichever is in front by now: the first check can end
+            // after the user has moved on.
+            require(source: held.source, sceneID: held.sceneID, held.action)
         }
         return true
     }
@@ -411,10 +433,16 @@ public final class PaywallService {
     /// - Parameter source: The app's name for where the user hit the lock, carried on every
     ///   ``PaywallEvent`` for this presentation.
     public func present(source: String) {
+        present(source: source, sceneID: activeSceneID)
+    }
+
+    /// - Parameter sceneID: The scene that asked, the window the paywall comes up in.
+    private func present(source: String, sceneID: UUID?) {
         // A new request never inherits an action from an earlier one that was never shown.
         actionAfterUnlock = nil
         heldRequirement = nil
         let request = PaywallRequest(source: source)
+        presentationSceneID = sceneID
         presentedRequest = request
         watchPresentation(of: request)
     }
@@ -427,15 +455,19 @@ public final class PaywallService {
     /// cached value someone edited opens nothing, and a subscriber on a fresh install is not shown
     /// a paywall. That wait is the first moment after launch and ends with ``isInitialized``.
     public func require(source: String, _ action: @escaping () -> Void) {
+        require(source: source, sceneID: activeSceneID, action)
+    }
+
+    private func require(source: String, sceneID: UUID?, _ action: @escaping () -> Void) {
         guard isInitialized else {
-            heldRequirement = (source, action)
+            heldRequirement = (source, sceneID, action)
             return
         }
         guard !hasAccess else {
             action()
             return
         }
-        present(source: source)
+        present(source: source, sceneID: sceneID)
         actionAfterUnlock = action
     }
 
@@ -447,20 +479,32 @@ public final class PaywallService {
     /// Notes a sheet host that came on screen, see `View.paywallSheet()`. By identity rather than
     /// by a count: SwiftUI repeats an appearance without its disappearance when it rebuilds a view,
     /// and a host counted twice would leave the paywall silent for the rest of the session.
-    func registerSheetHost(_ hostID: UUID) {
-        guard !sheetHosts.contains(hostID) else { return }
-        sheetHosts.append(hostID)
+    func registerSheetHost(_ hostID: UUID, sceneID: UUID? = nil) {
+        guard !sheetHosts.contains(where: { $0.id == hostID }) else { return }
+        sheetHosts.append((hostID, sceneID))
     }
 
     func unregisterSheetHost(_ hostID: UUID) {
-        sheetHosts.removeAll { $0 == hostID }
+        sheetHosts.removeAll { $0.id == hostID }
+    }
+
+    /// Notes the scene whose window became key: the one the user is in, and so the one the next
+    /// `present` comes from. An app that owns its service shares it between its windows, and
+    /// without this the paywall would come up in whichever window opened last.
+    func sceneDidBecomeActive(_ sceneID: UUID?) {
+        activeSceneID = sceneID
     }
 
     /// Whether this host is the one to present: the innermost on screen. SwiftUI presents one
     /// sheet per view, so a paywall asked for from inside a sheet has to come from that sheet, or
     /// it queues behind it and appears on the way out.
+    ///
+    /// The innermost of the scene that asked. Should that scene have no host, its window closed
+    /// or never reported itself, the innermost of all: a paywall in another window is better than
+    /// none.
     func presents(_ hostID: UUID) -> Bool {
-        sheetHosts.last == hostID
+        let host = sheetHosts.last { $0.sceneID == presentationSceneID } ?? sheetHosts.last
+        return host?.id == hostID
     }
 
     /// Forwards an event to ``onEvent`` and logs the ones that are diagnostics.
@@ -639,6 +683,9 @@ public final class PaywallService {
         lastWrittenEntitlement = entitlement
         self.entitlement = entitlement
         cache.write(entitlement)
+        // A widget reads the cache from the app group, and only when it draws its timeline. Without
+        // this a user who just paid keeps a locked widget until the next one.
+        if configuration.appGroupID != nil { reloadWidgets() }
     }
 
     private func listenForUpdates() {

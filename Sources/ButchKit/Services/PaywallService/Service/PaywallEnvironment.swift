@@ -49,10 +49,15 @@ struct PaywallRootModifier: ViewModifier {
 
     @Environment(\.scenePhase) private var scenePhase
 
+    /// This scene's identity. An app that owns its service shares it between its windows, and the
+    /// paywall has to come up in the one that asked, see ``PaywallService/presents(_:)``.
+    @State private var sceneID = UUID()
+
     func body(content: Content) -> some View {
         content
             .modifier(PaywallSheetModifier())
             .environment(service)
+            .environment(\.paywallSceneID, sceneID)
             .task { await service.initialize() }
             .onChange(of: scenePhase) { _, phase in
                 // A subscription that ran out in the background produced no transaction to hear
@@ -70,6 +75,8 @@ struct PaywallRootModifier: ViewModifier {
 /// the innermost one presents; see ``PaywallService/presents(_:)``.
 struct PaywallSheetModifier: ViewModifier {
     @Environment(PaywallService.self) private var paywall
+    /// The scene this host sits in, handed down by the root modifier and through every sheet.
+    @Environment(\.paywallSceneID) private var sceneID
 
     /// This host's identity, fixed for the life of the view.
     @State private var hostID = UUID()
@@ -89,8 +96,9 @@ struct PaywallSheetModifier: ViewModifier {
             ) { request in
                 PaywallView(request: request)
             }
-            .onAppear { paywall.registerSheetHost(hostID) }
+            .onAppear { paywall.registerSheetHost(hostID, sceneID: sceneID) }
             .onDisappear { paywall.unregisterSheetHost(hostID) }
+            .background { PaywallWindowObserver { paywall.sceneDidBecomeActive(sceneID) } }
 
         // After a lifetime purchase next to a subscription that still renews, once the paywall has
         // closed. From the host that presented it, the only one free to present again. Only an app
@@ -115,6 +123,24 @@ struct PaywallSheetModifier: ViewModifier {
             host
         }
     }
+}
+
+/// See `View.onVerifiedEntitlementChange(_:)`.
+struct VerifiedEntitlementChangeModifier: ViewModifier {
+    let action: (PaywallEntitlement) -> Void
+
+    @Environment(PaywallService.self) private var paywall
+
+    func body(content: Content) -> some View {
+        content.onChange(of: paywall.verifiedEntitlement, initial: true) { _, entitlement in
+            if let entitlement { action(entitlement) }
+        }
+    }
+}
+
+extension EnvironmentValues {
+    /// The scene a paywall sheet host belongs to, set by the root modifier.
+    @Entry var paywallSceneID: UUID?
 }
 
 public extension View {
@@ -186,5 +212,26 @@ public extension View {
     /// applied `.paywallEnvironment(_:texts:features:)`.
     func paywallSheet() -> some View {
         modifier(PaywallSheetModifier())
+    }
+
+    /// Runs `action` with what the user holds once StoreKit has said so, and again whenever it
+    /// changes: a purchase, a restore, a subscription running out, a refund. Never with the cached
+    /// answer of the last launch, so it is the place for everything that outlasts the screen or
+    /// lives outside SwiftUI:
+    ///
+    /// ```swift
+    /// RootView()
+    ///     .onVerifiedEntitlementChange { entitlement in
+    ///         camera.recordingLimit = entitlement == .none ? .free : .unlimited
+    ///     }
+    ///     .paywallEnvironment(paywallConfig, texts: paywallTexts)
+    /// ```
+    ///
+    /// Belongs below `View.paywallEnvironment(_:texts:features:)`, so above it in the chain. Do
+    /// not write an `onChange` over ``PaywallService/hasAccess`` for this: before StoreKit has
+    /// answered it reports the cache, and a subscriber on a fresh install would be written down as
+    /// not paying.
+    func onVerifiedEntitlementChange(_ action: @escaping (PaywallEntitlement) -> Void) -> some View {
+        modifier(VerifiedEntitlementChangeModifier(action: action))
     }
 }

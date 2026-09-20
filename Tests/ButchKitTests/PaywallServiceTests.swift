@@ -657,6 +657,83 @@ struct PaywallServiceTests {
         #expect(service.presents(root))
     }
 
+    /// An app that owns its service shares it between its windows. The window that opened last
+    /// registered last, and without scenes it would take every paywall.
+    @Test("Presents in the window that asked")
+    func presentsInTheAskingScene() {
+        let service = makeService()
+        let (mainScene, settingsScene) = (UUID(), UUID())
+        let (mainRoot, mainSheet, settingsRoot) = (UUID(), UUID(), UUID())
+        service.registerSheetHost(mainRoot, sceneID: mainScene)
+        service.registerSheetHost(settingsRoot, sceneID: settingsScene)
+
+        service.sceneDidBecomeActive(mainScene)
+        service.present(source: "export")
+        #expect(service.presents(mainRoot))
+        #expect(!service.presents(settingsRoot))
+
+        // A sheet inside the asking window is its innermost host, wherever it sits in the order.
+        service.registerSheetHost(mainSheet, sceneID: mainScene)
+        service.registerSheetHost(UUID(), sceneID: settingsScene)
+        #expect(service.presents(mainSheet))
+
+        service.sceneDidBecomeActive(settingsScene)
+        // The window coming forward moves nothing that is already up.
+        #expect(service.presents(mainSheet))
+        service.present(source: "settings")
+        #expect(!service.presents(mainSheet))
+    }
+
+    @Test("Falls back to the innermost host when the asking window is gone")
+    func presentsSomewhereWithoutTheScene() {
+        let service = makeService()
+        let root = UUID()
+        service.registerSheetHost(root, sceneID: UUID())
+        service.sceneDidBecomeActive(UUID())
+        service.present(source: "test")
+        #expect(service.presents(root))
+    }
+
+    /// The first check after launch may end after the user moved to another window.
+    @Test("A held requirement presents in the window that asked")
+    func heldRequirementKeepsItsScene() {
+        let service = makeService(initialized: false)
+        let (first, second) = (UUID(), UUID())
+        let (firstRoot, secondRoot) = (UUID(), UUID())
+        service.registerSheetHost(firstRoot, sceneID: first)
+        service.registerSheetHost(secondRoot, sceneID: second)
+
+        service.sceneDidBecomeActive(first)
+        service.require(source: "test") {}
+        service.sceneDidBecomeActive(second)
+        _ = service.markInitialized()
+
+        #expect(service.presentedRequest != nil)
+        #expect(service.presents(firstRoot))
+    }
+
+    // MARK: Locked state
+
+    @Test("Draws no lock while nothing is known, and one for a known free user")
+    func isLocked() {
+        let freshInstall = makeService(initialized: false)
+        #expect(!freshInstall.isLocked)
+        _ = freshInstall.markInitialized()
+        #expect(freshInstall.isLocked)
+
+        // A returning free user: the last launch left its answer behind.
+        clearCache()
+        PaywallEntitlementCache().write(.none)
+        let returning = PaywallService(configuration: config, texts: .preview)
+        #expect(returning.isLocked)
+
+        clearCache()
+        PaywallEntitlementCache().write(.subscription)
+        let subscriber = PaywallService(configuration: config, texts: .preview)
+        #expect(!subscriber.isLocked)
+        clearCache()
+    }
+
     // MARK: Cache
 
     // In this suite because it is serialized: these tests and the service share one defaults key.
@@ -736,6 +813,27 @@ struct PaywallServiceTests {
         cache.write(.none)
         #expect(cache.entitlement == PaywallEntitlement.none)
         clearGroup()
+    }
+
+    /// A widget reads the cache only when it draws its timeline, so a flip has to ask for one.
+    @Test("Reloads the widgets when the answer in the app group changes, and only then")
+    func reloadsWidgets() async {
+        clearGroup()
+        let grouped = PaywallService(configuration: PaywallConfiguration(subscriptionGroupID: "TEST", appGroupID: suiteName), texts: .preview)
+        var reloads = 0
+        grouped.reloadWidgets = { reloads += 1 }
+
+        await grouped.refresh { _ in PaywallEntitlementSnapshot(strongest: .subscription) }
+        await grouped.refresh { _ in PaywallEntitlementSnapshot(strongest: .subscription) }
+        #expect(reloads == 1)
+
+        // Without a group no widget can read the cache.
+        let plain = makeService()
+        plain.reloadWidgets = { reloads += 1 }
+        await plain.refresh { _ in PaywallEntitlementSnapshot(strongest: .subscription) }
+        #expect(reloads == 1)
+        clearGroup()
+        clearCache()
     }
 
     // MARK: Restore
