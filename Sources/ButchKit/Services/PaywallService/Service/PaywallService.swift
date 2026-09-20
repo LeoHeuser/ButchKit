@@ -490,6 +490,12 @@ public final class PaywallService {
 
     private func require(source: String, sceneID: UUID?, _ action: @escaping () -> Void) {
         guard isInitialized else {
+            // The last wins, as it does once initialized: there a second `require` replaces the
+            // first request's action through ``present(source:sceneID:)``. Logged because the tap
+            // that lost looks to the user like a button that did nothing at all.
+            if let held = heldRequirement {
+                logger.notice("Requirement replaced before the first entitlement check: dropped=\(held.source, privacy: .public) kept=\(source, privacy: .public)")
+            }
             heldRequirement = (source, sceneID, action)
             return
         }

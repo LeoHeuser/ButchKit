@@ -512,6 +512,24 @@ struct PaywallServiceTests {
         #expect(service.presentedRequest?.source == "export")
     }
 
+    /// Two taps before StoreKit has answered. The last is the one the user is waiting on, exactly
+    /// as it is once initialized, where `present` clears the earlier action. Pinned so nobody
+    /// turns the held slot into a queue: that would run an action the user has long left behind.
+    @Test("Keeps the last requirement made before StoreKit answered")
+    func lastHeldRequirementWins() {
+        let service = makeService(initialized: false)
+        var ran: [String] = []
+        service.require(source: "first") { ran.append("first") }
+        service.require(source: "second") { ran.append("second") }
+        _ = service.markInitialized()
+        #expect(service.presentedRequest?.source == "second")
+
+        service.handleSuccessfulPurchase(productID: "yearly", subscriptionGroupID: "TEST")
+        service.paywallDidDismiss()
+        #expect(ran == ["second"])
+        clearCache()
+    }
+
     /// A subscriber on a fresh install has nothing cached and must not be shown a paywall.
     @Test("Holds a requirement until StoreKit has answered, then runs it")
     func requireWaitsThenRuns() async {

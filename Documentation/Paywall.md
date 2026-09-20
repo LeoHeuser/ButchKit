@@ -236,7 +236,7 @@ Until that first check, `hasAccess` and `entitlement` answer from the cache. Tha
 
 `verifiedEntitlement` is `nil` until StoreKit has answered, and `nil` means "not known yet", never "free". Code that stores it waits for a value rather than writing `none`.
 
-`require(source:_:)` decides on the verified answer by itself. Called before the first check is done, it waits for it, a moment at launch, and then either runs the action or shows the paywall. An edited cache opens nothing, and a subscriber on a fresh install is not shown a paywall.
+`require(source:_:)` decides on the verified answer by itself. Called before the first check is done, it waits for it, a moment at launch, and then either runs the action or shows the paywall. An edited cache opens nothing, and a subscriber on a fresh install is not shown a paywall. Two taps in that moment keep the last, exactly as they do afterwards, and the dropped one is logged.
 
 ### Drawing the locked state
 
