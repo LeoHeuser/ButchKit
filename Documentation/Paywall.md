@@ -466,7 +466,7 @@ A child's purchase waits for a parent. Apple's sheet says so, the paywall stays 
 
 ### Lifetime next to a subscription
 
-A subscriber who buys a lifetime product keeps paying for the subscription, and no app can cancel it for them. With the `subscriptionOverlap` group in `PaywallTexts`, an alert says so once the paywall has closed, and its button opens the system's subscription management. Without the group nothing shows, and the Manage button in the settings row remains the only way there. Only an app that sells both needs the words. The alert shows once, on the purchase, never for a purchase the App Store merely replays at launch, and not when the subscription already ends on its own.
+A subscriber who buys a lifetime product keeps paying for the subscription, and no app can cancel it for them. With the `subscriptionOverlap` group in `PaywallTexts`, an alert says so once the paywall has closed, and its button opens the system's subscription management. Without the group nothing shows, and the Manage button in the settings row remains the only way there. Only an app that sells both needs the words. The alert shows once, on the purchase, never for a purchase the App Store merely replays at launch, and not when the subscription already ends on its own. An Ask to Buy approval that arrives before the app has read the subscription stays armed until it has, so the alert survives a parent approving overnight.
 
 ### Without pages
 

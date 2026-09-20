@@ -624,6 +624,21 @@ struct PaywallServiceTests {
 
     private let renewingPlan = HeldPlan(state: .subscribed, productID: "yearly", expirationDate: nil, willAutoRenew: true)
 
+    /// An Ask to Buy approval lands through `Transaction.updates` while the launch's first
+    /// entitlement read is still running, long before the plan is known. Deciding against a plan
+    /// that is still `nil` loses the alert for good, and with it the only route to the cancelling.
+    @Test("Points out a renewing subscription when the approval lands before the plan is read")
+    func overlapAfterAnApprovalAtLaunch() async {
+        let service = makeService()
+        service.purchaseDidPend(source: "export", productID: "lifetime")
+        service.handleSuccessfulPurchase(productID: "lifetime", subscriptionGroupID: nil)
+        #expect(!service.showsSubscriptionOverlap)
+
+        await service.loadSubscriptionDetails { _ in self.renewingPlan }
+        #expect(service.showsSubscriptionOverlap)
+        clearCache()
+    }
+
     /// The user would keep paying for both, and no app can cancel for them.
     @Test("Points out a renewing subscription once the paywall has closed on a lifetime purchase")
     func overlapAfterLifetimePurchase() {

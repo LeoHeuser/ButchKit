@@ -383,7 +383,9 @@ public final class PaywallService {
             // it asked for. One bought on another device arrives through `Transaction.updates` with
             // nothing on screen, and would otherwise leave the alert armed to appear out of nowhere.
             let isOurs = presentedRequest != nil || pendingPurchase?.productID == productID
-            subscriptionOverlapIsDue = isOurs && heldPlan?.willAutoRenew == true && texts.subscriptionOverlap != nil
+            // Armed, not decided: at launch an approval arrives before ``heldPlan`` is read, and
+            // a decision against a plan that is still `nil` would lose the alert for good.
+            subscriptionOverlapIsDue = isOurs && texts.subscriptionOverlap != nil
         }
         // Against what StoreKit has confirmed, never against ``entitlement``: that one starts as
         // the cached guess, and `max` would carry the guess into the cache as a confirmed answer.
@@ -614,11 +616,14 @@ public final class PaywallService {
     }
 
     /// After the paywall has closed, never over it: the alert leads out of the app's purchase and
-    /// into the system's subscription management.
+    /// into the system's subscription management. The plan decides here rather than at the
+    /// purchase, because at launch the purchase lands before the plan is read.
     private func showSubscriptionOverlapIfDue() {
-        guard subscriptionOverlapIsDue else { return }
+        guard subscriptionOverlapIsDue, presentedRequest == nil else { return }
+        // Still armed while no plan is known: the launch's read follows and decides then.
+        guard let heldPlan else { return }
         subscriptionOverlapIsDue = false
-        showsSubscriptionOverlap = true
+        if heldPlan.willAutoRenew { showsSubscriptionOverlap = true }
     }
 
     /// See ``PaywallEvent/subscriptionStatus(phase:productID:)``. From the plan the first refresh
@@ -632,6 +637,12 @@ public final class PaywallService {
     /// user who does not pay can still get the introductory offer. Each asked only of the user it
     /// concerns, so nobody's launch carries a query whose answer goes nowhere.
     private func loadSubscriptionDetails() async {
+        await loadSubscriptionDetails { HeldPlan.current(in: try await Product.SubscriptionInfo.status(for: $0)) }
+    }
+
+    /// - Parameter currentPlan: Reads the plan the user holds in the group. Replaced in tests,
+    ///   because `Product.SubscriptionInfo.Status` has no initializer of its own.
+    func loadSubscriptionDetails(currentPlan: (String) async throws -> HeldPlan?) async {
         guard let groupID = configuration.subscriptionGroupID else { return }
         guard hasAccess else {
             if heldPlan != nil { heldPlan = nil }
@@ -647,8 +658,11 @@ public final class PaywallService {
         }
         if isEligibleForIntroOffer != nil { isEligibleForIntroOffer = nil }
         do {
-            let plan = HeldPlan.current(in: try await Product.SubscriptionInfo.status(for: groupID))
+            let plan = try await currentPlan(groupID)
             if heldPlan != plan { heldPlan = plan }
+            // The plan the alert turns on is known only here. At launch an Ask to Buy approval
+            // comes through `Transaction.updates` before this first read.
+            showSubscriptionOverlapIfDue()
         } catch {
             // Decoration for the settings row and analytics. What is known stays, and the next
             // refresh tries again.
