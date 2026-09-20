@@ -39,9 +39,10 @@ struct PaywallOneTimeStore: View {
                     ProductView(id: productID)
                         .productViewStyle(PaywallProductStyle(
                             productID: productID,
-                            // The product the entitlement rests on. Its Buy button would sell the
-                            // user what is already theirs.
-                            isOwned: paywall.entitlement == .lifetime && paywall.lifetimeProductID == productID,
+                            // The products the user already owns. Their Buy button would sell the
+                            // user what is already theirs. Every one of them, not only the one the
+                            // entitlement is named after: an app may sell several.
+                            isOwned: paywall.ownedLifetimeProductIDs.contains(productID),
                             purchasedLabel: paywall.texts.sheet.purchasedLabel,
                             logger: paywall.logger,
                             onLoad: { loaded in

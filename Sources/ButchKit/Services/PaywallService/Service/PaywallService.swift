@@ -140,6 +140,9 @@ public final class PaywallService {
     /// The lifetime product the entitlement rests on, and whether it is a family member's.
     private(set) var lifetimeProductID: String?
     private(set) var lifetimeIsFamilyShared = false
+    /// Every lifetime product the user owns, which the paywall marks as bought. An app selling
+    /// several of them has an owner of two, and ``lifetimeProductID`` names only one, for the row.
+    private(set) var ownedLifetimeProductIDs: Set<String> = []
     /// Product names as App Store Connect spells them, by product, see ``loadPlanName(for:)``.
     private(set) var planNames: [String: String] = [:]
     /// Set once a lifetime purchase left a subscription renewing next to it and the paywall has
@@ -270,6 +273,7 @@ public final class PaywallService {
         entitlement = previewEntitlement
         // What a refresh would have found, so the settings row names a product.
         lifetimeProductID = previewEntitlement == .lifetime ? configuration.lifetimeProductIDs.first : nil
+        ownedLifetimeProductIDs = Set(lifetimeProductID.map { [$0] } ?? [])
         isInitialized = true
     }
 
@@ -360,10 +364,21 @@ public final class PaywallService {
         let granted = configuration.entitlement(productID: productID, subscriptionGroupID: subscriptionGroupID)
         guard granted != .none else { return }
         lastPurchase = .now
+        if granted == .lifetime {
+            // What is owned, whatever the entitlement already said: a second lifetime product
+            // bought next to the first, and one bought while a cached answer or a family member's
+            // copy already read as lifetime. Neither lifts the entitlement, both change the card.
+            ownedLifetimeProductIDs.insert(productID)
+            // A purchase of the user's own names the row from here on: their access no longer
+            // rests on a family member's copy, which they can neither manage nor keep.
+            if lifetimeProductID == nil || lifetimeIsFamilyShared {
+                lifetimeProductID = productID
+                lifetimeIsFamilyShared = false
+            }
+        }
         // Only a purchase that lifts the user to lifetime: `Transaction.updates` replays finished
         // purchases at launch, and an owner must not be asked about their subscription every time.
         if granted == .lifetime, entitlement < .lifetime {
-            lifetimeProductID = productID
             // Only a purchase this paywall made: from the sheet on screen, or the approval of what
             // it asked for. One bought on another device arrives through `Transaction.updates` with
             // nothing on screen, and would otherwise leave the alert armed to appear out of nowhere.
@@ -645,6 +660,9 @@ public final class PaywallService {
     private func applyEntitlement(_ snapshot: PaywallEntitlementSnapshot) {
         let resolved = snapshot.strongest
         if resolved < entitlement, let lastPurchase, .now - lastPurchase < purchaseGracePeriod {
+            // The lifetime product is left with the entitlement it belongs to. A snapshot weaker
+            // than what is held names none either, so moving the two assignments below above this
+            // return would empty the settings row for a purchase that is only waiting to be listed.
             logger.notice("Entitlement kept: StoreKit does not list the purchase yet")
             return
         }
@@ -658,6 +676,7 @@ public final class PaywallService {
         // did not move.
         if lifetimeProductID != snapshot.lifetimeProductID { lifetimeProductID = snapshot.lifetimeProductID }
         if lifetimeIsFamilyShared != snapshot.lifetimeIsFamilyShared { lifetimeIsFamilyShared = snapshot.lifetimeIsFamilyShared }
+        if ownedLifetimeProductIDs != snapshot.ownedLifetimeProductIDs { ownedLifetimeProductIDs = snapshot.ownedLifetimeProductIDs }
         setEntitlement(resolved)
         logger.debug("Entitlement resolved: \(resolved.rawValue, privacy: .public)")
     }

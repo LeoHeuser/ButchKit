@@ -15,6 +15,9 @@ struct PaywallEntitlementSnapshot: Sendable, Equatable {
     /// Whether a transaction for one of the configuration's products failed verification. It grants
     /// nothing, but tells a restore that a purchase exists and could not be trusted.
     var hasUnverified = false
+    /// Every verified lifetime product the user owns, which the paywall marks as bought. The
+    /// settings row names one of them, see ``lifetimeProductID``.
+    var ownedLifetimeProductIDs: Set<String> = []
     /// The first verified lifetime product listed, which the settings row names. Should the user
     /// own several, it names what they bought as well as any other.
     var lifetimeProductID: String?
@@ -27,9 +30,12 @@ struct PaywallEntitlementSnapshot: Sendable, Equatable {
         let granted = configuration.entitlement(productID: productID, subscriptionGroupID: subscriptionGroupID)
         guard granted != .none else { return }
         if isVerified {
-            if granted == .lifetime, lifetimeProductID == nil {
-                lifetimeProductID = productID
-                lifetimeIsFamilyShared = isFamilyShared
+            if granted == .lifetime {
+                ownedLifetimeProductIDs.insert(productID)
+                if lifetimeProductID == nil {
+                    lifetimeProductID = productID
+                    lifetimeIsFamilyShared = isFamilyShared
+                }
             }
             strongest = max(strongest, granted)
         } else {
@@ -47,8 +53,8 @@ struct PaywallEntitlementSnapshot: Sendable, Equatable {
             case .unverified(let transaction, _):
                 snapshot.add(productID: transaction.productID, subscriptionGroupID: transaction.subscriptionGroupID, isVerified: false, isFamilyShared: transaction.ownershipType == .familyShared, under: configuration)
             }
-            // Nothing outranks a lifetime product, so the rest of the list cannot change the answer.
-            if snapshot.strongest == .lifetime { break }
+            // Read to the end rather than stopping at the first lifetime product: a second one the
+            // user owns sits behind it, and the paywall marks every one of them as bought.
         }
         return snapshot
     }

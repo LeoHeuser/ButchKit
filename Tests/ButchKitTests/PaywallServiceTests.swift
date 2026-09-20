@@ -115,6 +115,19 @@ struct PaywallEntitlementSnapshotTests {
         #expect(snapshot.lifetimeProductID == "lifetime")
     }
 
+    /// An app that sells several lifetime unlocks: a user who owns two must see both marked as
+    /// bought, not only whichever StoreKit happened to list first.
+    @Test("Collects every verified lifetime product, and still names one")
+    func ownedLifetimeProductIDs() {
+        let config = PaywallConfiguration(subscriptionGroupID: "TEST", lifetimeProductIDs: ["lifetime", "supporter"])
+        var snapshot = PaywallEntitlementSnapshot()
+        snapshot.add(productID: "supporter", subscriptionGroupID: nil, isVerified: false, under: config)
+        snapshot.add(productID: "lifetime", subscriptionGroupID: nil, isVerified: true, under: config)
+        snapshot.add(productID: "supporter", subscriptionGroupID: nil, isVerified: true, under: config)
+        #expect(snapshot.ownedLifetimeProductIDs == ["lifetime", "supporter"])
+        #expect(snapshot.lifetimeProductID == "lifetime")
+    }
+
     /// A purchase that fails verification must never unlock the app, but a restore has to know
     /// it exists to say it could not be restored.
     @Test("Notes an unverified purchase without granting it")
@@ -347,6 +360,50 @@ struct PaywallServiceTests {
         service.handleSuccessfulPurchase(productID: "yearly", subscriptionGroupID: "TEST")
         #expect(service.entitlement == .lifetime)
         #expect(UserDefaults.standard.string(forKey: PaywallEntitlementCache.key) == PaywallEntitlement.lifetime.rawValue)
+        clearCache()
+    }
+
+    /// A lifetime owner buying a second lifetime product: the entitlement cannot rise, so the
+    /// paywall stays open on the very card that has to flip to a checkmark.
+    @Test("Owns a second lifetime product the moment it is bought")
+    func secondLifetimePurchaseIsOwned() {
+        let service = makeService()
+        service.handleSuccessfulPurchase(productID: "lifetime", subscriptionGroupID: nil, isDirectPurchase: true)
+        service.handleSuccessfulPurchase(productID: "supporter", subscriptionGroupID: nil, isDirectPurchase: true)
+        #expect(service.ownedLifetimeProductIDs == ["lifetime", "supporter"])
+        #expect(service.entitlement == .lifetime)
+        clearCache()
+    }
+
+    /// Bought while a family member's copy already granted access: the row must name what this
+    /// user paid for, and stop calling it the family's.
+    @Test("Names the user's own lifetime purchase over a family member's copy")
+    func ownPurchaseReplacesTheSharedCopy() async {
+        let service = makeService()
+        await service.refresh { config in
+            var snapshot = PaywallEntitlementSnapshot()
+            snapshot.add(productID: "lifetime", subscriptionGroupID: nil, isVerified: true, isFamilyShared: true, under: config)
+            return snapshot
+        }
+        #expect(service.lifetimeProductID == "lifetime")
+        #expect(service.lifetimeIsFamilyShared)
+
+        service.handleSuccessfulPurchase(productID: "supporter", subscriptionGroupID: nil, isDirectPurchase: true)
+        #expect(service.lifetimeProductID == "supporter")
+        #expect(!service.lifetimeIsFamilyShared)
+        clearCache()
+    }
+
+    /// The launch reads `.lifetime` from the cache, so a purchase inside the grace period lifts
+    /// nothing, and used to name nothing either.
+    @Test("Names a lifetime purchase made while the cached answer already read as lifetime")
+    func namesPurchaseOverACachedEntitlement() {
+        clearCache()
+        PaywallEntitlementCache().write(.lifetime)
+        let service = PaywallService(configuration: config, texts: .preview)
+        #expect(service.lifetimeProductID == nil)
+        service.handleSuccessfulPurchase(productID: "supporter", subscriptionGroupID: nil, isDirectPurchase: true)
+        #expect(service.lifetimeProductID == "supporter")
         clearCache()
     }
 
