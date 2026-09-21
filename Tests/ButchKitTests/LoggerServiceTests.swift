@@ -65,21 +65,6 @@ struct LogExportTests {
         }
     }
 
-    /// The unified logging system takes a message asynchronously, so it is not guaranteed to be
-    /// queryable on the very next statement. Poll until it shows up rather than reading once and
-    /// failing on a loaded machine.
-    private func waitForResult<T>(
-        timeout: Duration = .seconds(10),
-        _ read: () async throws -> T?
-    ) async throws -> T? {
-        let deadline = ContinuousClock.now + timeout
-        while ContinuousClock.now < deadline {
-            if let result = try await read() { return result }
-            try await Task.sleep(for: .milliseconds(200))
-        }
-        return try await read()
-    }
-
     /// Writes a marker message and reads it back. This is the only test that proves the whole
     /// `OSLogStore` chain — scope, position, predicate and mapping — actually works.
     @Test("Reads back a message it just wrote")

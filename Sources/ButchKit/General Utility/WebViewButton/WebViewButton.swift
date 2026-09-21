@@ -1,6 +1,6 @@
 //
 //  WebViewButton.swift
-//  Butch
+//  ButchKit
 //
 //  Created by Leo Heuser on 26.05.25.
 //

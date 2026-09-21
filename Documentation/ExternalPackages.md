@@ -8,7 +8,9 @@ Every app lists the third-party packages it ships, with their license and a way 
 
 1. **One definition.** The app declares its packages once, as `ExternalPackage` values in `ExternalPackage.all`. The screen renders them, so listing a new package is adding one entry.
 2. **One switch per optional package.** `isOptional: true` puts a switch under the package. It is an opt-out: on until the user turns it off.
-3. **One question everywhere else.** `ExternalPackage.ID.isEnabled` answers whether the app may run a package. Whatever starts the package asks it, and nothing else stores the decision.
+3. **One question everywhere else.** `isEnabled` on the package's `ExternalPackage.ID`, such as `ExternalPackage.ID.telemetryDeck.isEnabled`, answers whether the app may run a package. Whatever starts the package asks it, and nothing else stores the decision.
+
+The component stands on its own: it uses no other part of ButchKit, only SwiftUI and `UserDefaults.standard`.
 
 ## The model
 
@@ -22,6 +24,8 @@ Every app lists the third-party packages it ships, with their license and a way 
 ## Setup
 
 Every app declares its packages in **one dedicated file**, `ExternalPackagesDefinition.swift`. That file is the whole definition: which packages, which of them are optional, what switching one does, and which words the screen shows.
+
+The example uses [TelemetryDeck](https://github.com/TelemetryDeck/SwiftSDK), a third-party analytics SDK, because an analytics package is the typical optional one. Any other package is declared the same way.
 
 ```swift
 // ExternalPackagesDefinition.swift — the one place the app's external packages are declared
@@ -49,17 +53,23 @@ extension ExternalPackage {
     ]
 }
 
+// The app's display name from the bundle, so a renamed app cannot leave the old name in the
+// text. The app's own constant: ButchKit does not provide one.
+private let appName = Bundle.main.object(forInfoDictionaryKey: "CFBundleDisplayName") as? String ?? "App"
+
 // Every word the screen shows. Written here, so Xcode extracts each key into the app's
-// catalogs; see Localization below. `appName` is the app's display name from the bundle,
-// so a renamed app cannot leave the old name in the text.
-let externalPackagesTexts = ExternalPackagesTexts(
-    title: "text.settings.licenses.title",
-    emptyTitle: "text.settings.licenses.empty.title",
-    purpose: Text("text.packages.purpose \(appName)"),
-    sourceHint: String(localized: "accessibility.link.settings.licenses.source", table: "Accessibility"),
-    toggle: { Text("toggle.packages.enabled \($0)") },
-    toggleHint: String(localized: "accessibility.toggle.packages.enabled", table: "Accessibility")
-)
+// catalogs; see Localization below. Computed, because `ExternalPackagesTexts` is not
+// `Sendable` and a global `let` of it does not compile in Swift 6 language mode.
+var externalPackagesTexts: ExternalPackagesTexts {
+    ExternalPackagesTexts(
+        title: "text.settings.licenses.title",
+        emptyTitle: "text.settings.licenses.empty.title",
+        purpose: Text("text.packages.purpose \(appName)"),
+        sourceHint: String(localized: "accessibility.link.settings.licenses.source", table: "Accessibility"),
+        toggle: { Text("toggle.packages.enabled \($0)") },
+        toggleHint: String(localized: "accessibility.toggle.packages.enabled", table: "Accessibility")
+    )
+}
 ```
 
 Then open the screen with the app's one array and its one texts value:
@@ -68,7 +78,9 @@ Then open the screen with the app's one array and its one texts value:
 ExternalPackagesView(packages: ExternalPackage.all, texts: externalPackagesTexts)
 ```
 
-Both are always required. There is no second way in and nothing a missing modifier could leave blank.
+Both are always required. There is no second way in and nothing a missing modifier could leave blank. An empty array shows an empty state titled with `emptyTitle`.
+
+The `url` of each package is a string literal the app writes. It is unwrapped when the entry is created, so a malformed address crashes the first time `ExternalPackage.all` is read. Preview the screen after adding an entry.
 
 A project that sets `SWIFT_DEFAULT_ACTOR_ISOLATION = MainActor` makes each `ExternalPackage.ID` constant main-actor isolated. Declare it `nonisolated static let` when code off the main actor asks the gate.
 
@@ -90,7 +102,7 @@ NavigationLink {
 
 In a sheet, wrap it in a `NavigationStack` so the title shows.
 
-On macOS, open it as a window of its own. A `Settings` window has no toolbar for a `NavigationStack` to put its back button in, and a window brings a title bar, a close button and Cmd-W without any of it being built:
+On macOS, open it as a window of its own. A `Settings` window has no toolbar for a `NavigationStack` to put its back button in, and a window brings a title bar, a close button and Cmd-W without any of it being built. `windowID` exists on every platform, so a shared settings row can name it; `windowSize` exists on macOS only:
 
 ```swift
 // In the App's body
@@ -134,8 +146,8 @@ What it promises:
 
 - It runs on the main actor, so it can call anything the app's own code can.
 - It runs once per flip by the user, and only when the value really changed.
-- The new value is already stored when it runs, so `ExternalPackage.ID.isEnabled` agrees with it.
-- It does **not** run at launch. Whatever starts the package then reads `ExternalPackage.ID.isEnabled`.
+- The new value is already stored when it runs, so the package's `isEnabled` agrees with it.
+- It does **not** run at launch. Whatever starts the package then reads its `isEnabled`.
 
 `ExternalPackage.all` is a static constant, so the closure reaches static API, such as an SDK's own entry points or a static extension on the SDK. It cannot reach an instance the app holds in its state.
 
@@ -184,7 +196,7 @@ To see the decision in a diagnostics file, log it once at launch at `notice`, fo
 
 ButchKit ships no strings and names no keys. Every word the screen shows is handed in through `ExternalPackagesTexts`, and every package's purpose through its `description`. Each key is therefore written in the app's own code, where Xcode finds it and extracts it into the app's catalog like any other string. See [ButchKit.md](ButchKit.md#localization) for the rule.
 
-`description` is a `String.LocalizationValue`, resolved in `Bundle.main`, the consuming app. A package's `name` and `license` are not language and stay as written.
+`description` is handed in as a `String.LocalizationValue` and resolved in `Bundle.main`, the consuming app. It is resolved once, when the entry is created, and stored as a `String`: since `ExternalPackage.all` is a static constant, the language is the one the app runs in when the array is first read. A package's `name` and `license` are not language and stay as written.
 
 The switch's label is a closure that receives the package's name, so the key and its placeholder stand in the app's code together.
 
@@ -224,9 +236,9 @@ Deliberately, to stay one system:
 A compact checklist for anyone, human or AI, touching external packages in a ButchKit project:
 
 - External packages are declared in one file, `ExternalPackagesDefinition.swift`: one `static let` per `ExternalPackage.ID`, one static array of `ExternalPackage` values in `ExternalPackage.all`, and one `ExternalPackagesTexts` value. Nowhere else.
-- Pass the app's one array and one texts value, `ExternalPackage.all` and `externalPackagesTexts`, at every call site. Never build a second array or a second texts value for one entry point.
-- Ask `ExternalPackage.ID.isEnabled` where a package starts. Never read the defaults key yourself, and never keep a copy of the answer.
+- Pass the app's one array and one texts value, `ExternalPackage.all` and `externalPackagesTexts`, at every call site. Declare the texts value as a computed property, never a global `let`. Never build a second array or a second texts value for one entry point.
+- Ask the package's `isEnabled`, such as `ExternalPackage.ID.telemetryDeck.isEnabled`, where a package starts. Never read the defaults key yourself, and never keep a copy of the answer.
 - Put the reaction to the switch in `onEnabledChange`, on the package. Never wire it at a call site.
 - Mark a package optional only if the app works without it.
 - Every word is written in the app's code, in `ExternalPackagesTexts` and the package descriptions, so Xcode extracts it into the app's catalogs. Never add a key to a catalog by hand.
-- For TelemetryDeck, opt out with `analyticsDisabled` on a kept configuration. Never skip `initialize`, and never `terminate()` to opt out.
+- If the app uses TelemetryDeck, opt out with `analyticsDisabled` on a kept configuration. Never skip `initialize`, and never `terminate()` to opt out.

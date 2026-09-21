@@ -4,13 +4,13 @@ How to sell a subscription with ButchKit: one configuration, one modifier, one q
 
 ## What it is
 
-Every app we ship earns its money through one auto-renewable subscription group, one or more lifetime unlocks sold as one-time purchases, or both. The paywall module turns that into a fixed system so an app never writes StoreKit code again:
+The paywall is for an app that earns its money through one auto-renewable subscription group, one or more lifetime unlocks sold as one-time purchases, or both. The paywall module turns that into a fixed system so an app never writes StoreKit code again:
 
 1. **One truth.** `PaywallService.hasAccess` is the only place that knows whether the user pays. Every gate in the app asks it, nothing else. `entitlement` says whether it is a subscription or the lifetime product; only the settings row needs that. `verifiedEntitlement` is the same answer once StoreKit has confirmed it, for anything that outlasts the screen.
-2. **One integration.** `.paywallEnvironment(_:texts:features:)` on the root view. It creates the service, injects it, runs the first entitlement check, reads again on every foreground and owns the paywall sheet. An app that needs the service outside its views builds it itself and hands it to `.paywallEnvironment(_:)`.
-3. **One look.** The paywall is the VideoSkript layout: full-bleed photo pages that advance on their own, over Apple's `SubscriptionStoreView`. Apps supply pages, not views.
+2. **One integration.** `.paywallEnvironment(_:texts:features:onEvent:)` on the root view. It creates the service, injects it, runs the first entitlement check, reads again on every foreground and owns the paywall sheet. An app that needs the service outside its views builds it itself and hands it to `.paywallEnvironment(_:)`.
+3. **One look.** The paywall has one fixed layout: full-bleed photo pages that advance on their own, over Apple's `SubscriptionStoreView`. Apps supply pages, not views.
 
-The paywall is not a place for experiments. If the layout has to change, it changes in ButchKit for every app.
+The paywall is not a place for experiments. If the layout has to change, it changes in ButchKit, for every app that uses it.
 
 ## The model
 
@@ -20,13 +20,18 @@ The paywall is not a place for experiments. If the layout has to change, it chan
 | **`PaywallFeature`** | One marketing page: a title, plus an optional description and photo | You, once per app, as many as you like, or none |
 | **`PaywallTexts`** | Every word the paywall and the settings row show, in groups; an app words only the groups it shows | You, once per app |
 | **`PaywallService`** | `hasAccess`, `entitlement` and `verifiedEntitlement`, plus `present` and `require` to show the paywall and `restorePurchases` for a settings row | ButchKit, created by the root modifier or by the app |
+| **`PaywallConfiguration.LegacyCache`** | Where the app kept its answer before it adopted ButchKit, read until ButchKit has one | You, only when migrating |
 | **`PaywallEntitlementCache`** | The last confirmed entitlement, readable from a widget, an extension or an App Intent | ButchKit writes, you read |
-| **`PaywallEntitlement`** | `none`, `subscription` or `lifetime` | ButchKit |
+| **`PaywallEntitlement`** | `none`, `subscription` or `lifetime`, `String`-backed and ordered in that sequence | ButchKit |
 | **`PaywallEvent`** | The funnel: presented, purchase started, completed, pending, failed, each with its source and the product, and with a `name` and `parameters` ready for a signal | ButchKit reports, you forward to analytics |
 | **`SubscriptionPhase`** | Where an active subscriber stands: trial or paid, renewing or canceled. Carried by `PaywallEvent.subscriptionStatus` | ButchKit |
-| **`PaywallRequest`** | The presentation in flight, carrying its `source` | ButchKit |
+| **`PaywallPurchaseFailure`** | Why a purchase failed, by kind: `network`, `notAvailableInStorefront`, `productUnavailable`, `purchaseNotAllowed`, `ineligibleForOffer`, `invalidOffer`, `system`, `unknown`. Stable raw values | ButchKit |
+| **`PaywallRequest`** | The presentation in flight, carrying its `source` and an `id` | ButchKit |
+| **`PaywallRestoreOutcome`** | What `restorePurchases()` found: `restored`, `nothingToRestore`, `cancelled`, `offline` or `failed` | ButchKit |
 | **`PaywallStatusRow`** | The settings row: plan, renewal date and management; the lifetime purchase; or the offer | ButchKit |
 | **`PaywallStatusReader`** | What that row knows and does, as a `PaywallStatus`, for an app that draws its own row | ButchKit loads, you draw |
+| **`PaywallStatus`** | The value the reader hands over: entitlement, plan name, detail, loading and Family Sharing state, and the two actions | ButchKit |
+| **`SubscriptionDetail`** | The line under the plan's name: `renews(Date)`, `ends(Date)` or `billingIssue` | ButchKit |
 
 Entitlement is decided per **subscription group**, not per product. Every tier in the group unlocks the app. Adding a monthly tier next to the yearly one is an App Store Connect change, not a code change.
 
@@ -35,7 +40,7 @@ The one exception is the **lifetime products**: non-consumables that each unlock
 An app that sells nothing but lifetime products leaves out the group:
 
 ```swift
-let paywallConfig = PaywallConfiguration(lifetimeProductIDs: ["design.heuser.App.full_version"])
+let paywallConfig = PaywallConfiguration(lifetimeProductIDs: ["com.example.App.full_version"])
 ```
 
 The paywall then shows the one-time purchases alone, and the settings row never offers subscription management. A configuration with neither a group nor a lifetime product sells nothing and stops a debug build; a release build logs a fault.
@@ -49,18 +54,18 @@ Every app declares its paywall in **one dedicated file**, `Paywall.swift`. That 
 import ButchKit
 
 #if DEBUG
-private let groupID = "48E92801"   // the group in Products.storekit
+private let groupID = "11111111"   // the group in Products.storekit
 #else
-private let groupID = "21900977"   // the group in App Store Connect
+private let groupID = "00000000"   // the group in App Store Connect
 #endif
 
 let paywallConfig = PaywallConfiguration(
     subscriptionGroupID: groupID,
-    lifetimeProductIDs: ["design.heuser.App.full_version"],   // only for an app that sells any
-    privacyPolicyURL: "https://heuser.design/app/privacy",
-    termsOfServiceURL: "https://heuser.design/app/terms",
+    lifetimeProductIDs: ["com.example.App.full_version"],   // only for an app that sells any
+    privacyPolicyURL: "https://example.com/privacy",
+    termsOfServiceURL: "https://example.com/terms",
     featureAreaHeight: 0.62,  // share of the sheet the pages take: 0 hides them, 1 fills it
-    appGroupID: "group.design.heuser.App"   // only for an app with a widget or an extension
+    appGroupID: "group.com.example.App"   // only for an app with a widget or an extension
 )
 
 // Every word the paywall and the settings row show. Written here, so Xcode extracts each key
@@ -111,7 +116,7 @@ let paywallFeatures: [PaywallFeature] = [
 
 All three are `Sendable`, so they stand at file scope as plain `let` constants under Swift 6, built once. Never make them computed properties: the root would rebuild every word on every render.
 
-Only the title is required. Leave out `image` and the page shows its text centred on the paywall's dark ground; leave out `description` and the title stands on its own. A page with a photo keeps its text at the bottom, where the photo has faded out.
+Only the title is required. Leave out `image` and the page shows its text centred, on a dark ground when another page carries a photo and following the device otherwise; leave out `description` and the title stands on its own. A page with a photo keeps its text at the bottom, where the photo has faded out.
 
 The pages themselves are optional too. An app that has no marketing photos yet leaves `features` out entirely:
 
@@ -144,7 +149,7 @@ Put the modifier on a view whose body does not re-evaluate often. Inside `Window
 
 ### Owning the service
 
-The modifier above makes one service per scene. That is right for an iPhone app and wrong in two cases: an app with **several windows** (any Mac app, where Cmd-N opens a second one, and iPad apps with multiple scenes) would run one service, one StoreKit listener and one launch report per window; and **code outside the view hierarchy**, a recording pipeline or a sync engine, cannot read the environment at all. Such an app builds the service once and hands it in:
+The modifier above makes one service per scene. That is right for an iPhone app and wrong in two cases: an app with **several windows** (any Mac app, where Cmd-N opens a second one, and iPad apps with multiple scenes) would run one service, one StoreKit listener and one launch report per window; and **code outside the view hierarchy**, a background service or a sync engine, cannot read the environment at all. Such an app builds the service once and hands it in:
 
 ```swift
 @main
@@ -168,22 +173,24 @@ struct MyApp: App {
 
 Everything else stays the same: views read `@Environment(PaywallService.self)`, and the modifier starts the service, however many scenes carry it. The paywall comes up in the window that asked for it: each scene's root modifier and every `.paywallSheet()` know their window, and the one the user is in presents. A Mac app's `Settings` scene takes the same `.paywallEnvironment(paywall)` as its windows, not a second service. What needs it outside a view gets it through its initializer, like any other dependency.
 
+An owned service is started by the first `.paywallEnvironment(paywall)` that appears. Code that runs without any view, a test or a command-line tool, calls `await paywall.initialize()` itself; further calls do nothing. `refresh()` re-reads the entitlements on demand, `dismissPaywall()` closes the paywall, and `presentedRequest` is the presentation in flight. `report(_:)` hands an event to `onEvent` as if the service had raised it; the service calls it itself, and an app has no reason to.
+
 ### Widgets, extensions and App Intents
 
 These run in another process and cannot reach the service. Name an app group in the configuration and the last confirmed entitlement is cached there instead of in the app's own defaults:
 
 ```swift
-let entitlement = PaywallEntitlementCache(appGroupID: "group.design.heuser.App").entitlement
+let entitlement = PaywallEntitlementCache(appGroupID: "group.com.example.App").entitlement
 ```
 
 `nil` means not known yet, never "does not pay": the app has not run since the install. Treat it as the app treats its own loading state, not as a locked feature. The value is as old as the app's last entitlement check, so a subscription that ran out since still reads as one until the app is opened again. Only confirmed answers are ever written, so the extension never finds a guess. An app that adopts a group in an update keeps the answer it cached before.
 
 With a group named, every change of the answer also reloads the app's widget timelines, so a widget unlocks the moment the purchase goes through rather than at its next refresh. There is no `WidgetCenter` call to write.
 
-An extension that does not link ButchKit reads the same value by hand: the string under `design.heuser.ButchKit.paywall.entitlement` in the group's `UserDefaults`, one of `none`, `subscription` or `lifetime`. Both are a stable contract.
+An extension that does not link ButchKit reads the same value by hand: the string under `design.heuser.ButchKit.paywall.entitlement` (`PaywallEntitlementCache.key`) in the group's `UserDefaults`, one of `none`, `subscription` or `lifetime`. Both are a stable contract.
 
 ```swift
-let raw = UserDefaults(suiteName: "group.design.heuser.App")?.string(forKey: "design.heuser.ButchKit.paywall.entitlement")
+let raw = UserDefaults(suiteName: "group.com.example.App")?.string(forKey: "design.heuser.ButchKit.paywall.entitlement")
 let pays = raw.map { $0 != "none" }   // nil: not known yet, never "does not pay"
 ```
 
@@ -192,10 +199,10 @@ let pays = raw.map { $0 != "none" }   // nil: not known yet, never "does not pay
 An app that adopts ButchKit in an update kept its answer under a key of its own, and ButchKit's cache is empty on the first launch after it: a paying user would see the paywall flash. Name that key once and it is read until ButchKit has an answer:
 
 ```swift
-legacyCache: .init(key: "isProUser", suiteName: "group.design.heuser.App")   // suiteName only if it was not the standard defaults
+legacyCache: .init(key: "isPremium", suiteName: "group.com.example.App")   // suiteName only if it was not the standard defaults
 ```
 
-It only draws the interface for that one moment. StoreKit's answer replaces it, and nothing is unlocked on it for good.
+Only a `true` there counts, and it is read as a subscription, also in an app that sells only lifetime products; a `false` says as little as a missing key. ButchKit's own cache from before 2.0, a Bool under `design.heuser.ButchKit.paywall.hasSubscription` in the standard defaults, is read the same way. It only draws the interface for that one moment. StoreKit's answer replaces it, and nothing is unlocked on it for good.
 
 Never build a mirror of your own next to this. A mirror written before StoreKit has answered is how a paying user gets locked out of an extension.
 
@@ -213,9 +220,9 @@ struct EditorView: View {
 
     var body: some View {
         if paywall.hasAccess {
-            EditableText()
+            EditableContent()
         } else {
-            LockedText { paywall.present(source: "lockedScript") }
+            LockedContent { paywall.present(source: "lockedItem") }
         }
     }
 }
@@ -248,12 +255,12 @@ if paywall.isLocked { UnlockBanner() }
 
 ### Reacting to the entitlement
 
-Whatever has to follow the entitlement outside the screen hangs on one modifier: a recording limit in a capture pipeline, a TipKit parameter, scheduled notifications, a value of the app's own for an extension.
+Whatever has to follow the entitlement outside the screen hangs on one modifier: a limit in a service of the app's own, a TipKit parameter, scheduled notifications, a value of the app's own for an extension.
 
 ```swift
 RootView()
     .onVerifiedEntitlementChange { entitlement in
-        camera.recordingLimit = entitlement == .none ? .free : .unlimited
+        exporter.limit = entitlement == .none ? .free : .unlimited
     }
     .paywallEnvironment(paywallConfig, texts: paywallTexts)
 ```
@@ -272,8 +279,8 @@ paywall.present(source: "settings")
 
 // Gate an action. Runs now when subscribed; otherwise shows the paywall and runs the
 // action right after the purchase, so the user lands where they were going.
-Button("button.newScript", systemImage: "plus") {
-    paywall.require(source: "newScript") { addScript() }
+Button("button.newItem", systemImage: "plus") {
+    paywall.require(source: "newItem") { addItem() }
 }
 ```
 
@@ -281,7 +288,7 @@ Button("button.newScript", systemImage: "plus") {
 
 A request that no sheet picks up within five seconds is dropped and logged as an error. The five seconds start with the first sheet host, not with the request, so a `present(source:)` from an App Intent or a notification on a cold launch waits for the scene rather than being dropped before it exists. That is always the same mistake, a `present` from inside a sheet that lacks `.paywallSheet()`, see below. Dropping it matters: left standing, the request would bring the paywall up out of nowhere once that sheet closes.
 
-`source` is the app's own short name for where the user hit the lock: `newScript`, `lockedScript`, `pasteButton`, `settings`. It is carried on every event, so analytics can tell which entry point earns the conversions. Use `lowerCamelCase`, keep the set small, and keep it stable across releases.
+`source` is the app's own short name for where the user hit the lock: `newItem`, `lockedItem`, `export`, `settings`. It is carried on every event, so analytics can tell which entry point earns the conversions. Use `lowerCamelCase`, keep the set small, and keep it stable across releases.
 
 No view declares a sheet. The root modifier owns it.
 
@@ -298,10 +305,10 @@ SwiftUI presents one sheet per view. While a Settings sheet is open, the root sh
 
 Views pushed onto a `NavigationStack` need nothing. Only full sheets and covers do.
 
-The innermost host on screen presents, which is by the order the hosts appeared. In an app with
-**several windows** that ordering is app-wide, not per window: a `present` reaches the host that
-appeared last anywhere, so a paywall asked for in one window can come up in another. It is the one
-case the rule does not cover, and it only bites a multi-window Mac or iPad app.
+The innermost host on screen presents, in the window that asked: every request remembers the
+scene the user was in, and the innermost host of that scene takes it. Only when that scene has no
+host, its window closed in the meantime, does the innermost host of any window present, so the
+paywall still comes up rather than not at all.
 
 ### The settings row
 
@@ -311,13 +318,9 @@ to support instead of looking it up.
 
 ```swift
 Form {
-    CloudStatus()
-
     Section {
         PaywallStatusRow(source: "settings")
     }
-
-    LegalInfo()
 }
 ```
 
@@ -353,7 +356,8 @@ with what the app unlocks.
 
 On iOS, Manage opens `manageSubscriptionsSheet` on the configured group. macOS has no such
 sheet, and neither has an iPhone or iPad app running on a Mac, so there the button opens the
-App Store's subscription page.
+App Store's subscription page. Which of the two it is comes from ButchKit's `\.device`, so a
+preview that sets `.environment(\.device, .mac)` shows the Mac behaviour.
 
 One group with several plans (monthly and yearly, or Plus and Pro) is the case this row is
 built for: Apple's sheet handles every change between them. Subscriptions a user holds side by
@@ -405,8 +409,11 @@ system's sheet, which is where the payment method is fixed, and iOS asks for it 
 The plan, its name and the lifetime product live in the service, which follows StoreKit for the
 life of the app. A settings screen opened for the tenth time shows them at once, nothing loads in.
 
-In a preview, a row of the app's own gets its status from `PaywallStatus(previewEntitlement:planName:detail:…)`,
-every state without a StoreKit file.
+In a preview, a row of the app's own gets its status from
+`PaywallStatus(previewEntitlement:planName:detail:canManageSubscription:isFamilyShared:isLoading:)`,
+every state without a StoreKit file. Like the service's own preview initializers,
+`PaywallService(configuration:texts:previewEntitlement:)` and `(…previewSubscribed:)`, it exists in
+debug builds only.
 
 ### Restore in the settings
 
@@ -433,9 +440,9 @@ button while it runs.
 
 ## What the user sees
 
-The paywall is fixed. For every app:
+The paywall is fixed, the same in every app that uses it:
 
-- Photo pages from `paywallFeatures`, swipeable, advancing every five seconds, pausing for fifteen after a swipe. With Reduce Motion on, they move only when the user moves them. Page dots are always visible. On a Mac, which has neither a paged view nor a swipe, the pages cross-fade and the dots are what moves them. The pages take a share of the sheet's height at the top, `featureAreaHeight` (62 % unless the app sets it), and never scroll away; everything below them scrolls on its own when it does not fit. That share is an upper bound. The purchases keep a minimum height, enough for a plan, the Subscribe button and the policy line, and it grows with the text size; on a short sheet (iPhone SE, landscape) or at a large Dynamic Type size the pages give way, so the Subscribe button stays in view. At the largest accessibility sizes they give way entirely, and the paywall falls back to its plain layout with a navigation bar rather than floating buttons over nothing. On a regular iPhone at the default text size nothing changes. A page marked `introOfferOnly` shows only to a user who can still get the introductory offer, see below.
+- Photo pages from `paywallFeatures`, swipeable, advancing every five seconds, pausing for fifteen after a swipe. With Reduce Motion on, they move only when the user moves them. Page dots show whenever there is more than one page. On a Mac, which has neither a paged view nor a swipe, the pages cross-fade and the dots are what moves them. The pages take a share of the sheet's height at the top, `featureAreaHeight` (62 % unless the app sets it), and never scroll away; everything below them scrolls on its own when it does not fit. That share is an upper bound. The purchases keep a minimum height, enough for a plan, the Subscribe button and the policy line, and it grows with the text size; on a short sheet (iPhone SE, landscape) or at a large Dynamic Type size the pages give way, so the Subscribe button stays in view. At the largest accessibility sizes they give way entirely, and the paywall falls back to its plain layout with a navigation bar rather than floating buttons over nothing. On a regular iPhone at the default text size nothing changes. A page marked `introOfferOnly` shows only to a user who can still get the introductory offer, see below.
 - Title in `.title.bold`, description in `.headline`. On a page with a photo the text sits at the bottom, over a gradient that fades the photo out; on a page without one it centres.
 - With lifetime products, a segmented control under the pages: the subscription first and selected, the one-time purchases second. Switching changes only what sits below it; the pages and the control keep their place. The one-time side lists one card per product across the full width, Apple's `ProductView` in a ButchKit style: name and description from App Store Connect, and a Buy button carrying the price. `SubscriptionStoreView` shows nothing but subscriptions, which is why the one-time purchases need a side of their own. Without lifetime products there is no control, and the paywall is the subscription side alone. Without a group there is no control either, and the paywall is the one-time side alone; with no pages that list sits right under the toolbar.
 - Apple's subscription controls below, as Apple's picker: one card per plan, one Subscribe button under them, starting right under the pages. Adding a tier in App Store Connect needs no code change. Before iOS 18 and macOS 15 StoreKit picks the shape itself, a single Subscribe button for a group with one plan. Introductory offers are shown by StoreKit either way.
@@ -458,7 +465,7 @@ A page that says "One month free" is untrue for everyone who has had that month.
 PaywallFeature(title: "paywall.feature.trial.title", image: .payWallFeatureTrial, introOfferOnly: true)
 ```
 
-`paywall.isEligibleForIntroOffer` is the same answer for the app's own copy, a banner or an onboarding page. It is `nil` until the App Store has said and for a user who already pays; treat `nil` like `false` and promise nothing. The plan cards themselves are Apple's and always show the right offer.
+`paywall.isEligibleForIntroOffer` is the same answer for the app's own copy, a banner or an onboarding page. It is `nil` until the App Store has said, in an app without a subscription group, and for a user who already pays; treat `nil` like `false` and promise nothing. The plan cards themselves are Apple's and always show the right offer.
 
 ### Ask to Buy
 
@@ -481,17 +488,17 @@ Everything else is identical. The same events fire, the sheet closes on success 
 
 ## Hiding or paywalling
 
-Not everything that needs a subscription belongs behind the paywall. The rule from VideoSkript:
+Not everything that needs a subscription belongs behind the paywall. The rule:
 
 - **Paywall** the thing the subscription sells. Creating and editing.
-- **Hide** what would trap a free user. Rename and delete of their own data are hidden, not paywalled: deleting your only script and then being unable to create one is no reason to be sold a subscription.
-- **Read-only** instead of disabled. A locked text stays scrollable; a disabled `TextEditor` would make a long script unreadable.
+- **Hide** what would trap a free user. Rename and delete of their own data are hidden, not paywalled: deleting your only document and then being unable to create one is no reason to be sold a subscription.
+- **Read-only** instead of disabled. Locked content stays scrollable and selectable; a disabled `TextEditor` would make a long text unreadable.
 
 ## The free tier
 
 What a non-subscriber may still do is a rule about **scope**, never a counter.
 
-Not "ten receipts free, then pay". A month is free and the year is paid; one project is free and
+Not "ten documents free, then pay". A month is free and the year is paid; one project is free and
 the library is paid. A scope rule reads the data and answers. It stores nothing, so there is
 nothing to keep in step, nothing to migrate, and nothing that can drift out of agreement with
 what the user sees.
@@ -515,7 +522,7 @@ what the other answer still allows.
 
 ## Analytics
 
-ButchKit has no analytics dependency. Hand the root modifier a handler and forward:
+ButchKit has no analytics dependency. Hand the root modifier a handler, its `onEvent` parameter, and forward to whatever analytics the app uses (TelemetryDeck here, as an example):
 
 ```swift
 RootView()
@@ -589,14 +596,25 @@ Product names and prices come from App Store Connect, localized per storefront. 
 ## What happens underneath
 
 - **Launch.** The cached answer from the last run is restored immediately. `Transaction.currentEntitlements` is then read once; a verified transaction in the configured group means subscribed, one for a lifetime product means lifetime, and the stronger of the two wins. `isInitialized` turns `true`, `verifiedEntitlement` gets its value, and a `require` that was waiting is decided. Only answers from StoreKit are ever written to the cache.
-- **While running.** From `initialize()` on, a `Transaction.updates` listener finishes every verified transaction and updates the state: purchase, renewal, restore, Ask to Buy approval, and refund or revocation. A revocation re-reads the entitlements rather than clearing them: a refunded lifetime purchase leaves a running subscription in place, and the other way round. A subscription that runs out produces no transaction, so a second listener on `Product.SubscriptionInfo.Status.updates` re-reads on every status change: an app left open locks when the plan ends.
+- **While running.** From `initialize()` on, a `Transaction.updates` listener finishes every verified transaction and updates the state: purchase, renewal, restore, Ask to Buy approval, and refund or revocation. A revocation re-reads the entitlements rather than clearing them: a refunded lifetime purchase leaves a running subscription in place, and the other way round. A subscription that runs out produces no transaction, so in an app with a subscription group a second listener on `Product.SubscriptionInfo.Status.updates` re-reads on every status change: an app left open locks when the plan ends.
 - **Refresh.** Every read runs in a task of its own, one behind the other. A caller that is cancelled, a `.task` on a view the user just left, cannot cut a read short: a read cut short comes back empty and would lock a paying user out. Overlapping reads land in the order they were asked for.
 - **Purchases from the paywall.** Finished right there, in the completion handler, and granted at once so the sheet closes without waiting for StoreKit to list the transaction. For ten seconds after, no refresh takes that access away again: StoreKit lists a fresh transaction a moment late, exactly when the app returns from the payment sheet and reads on foreground.
 - **Restore.** `AppStore.sync()`, then `Transaction.currentEntitlements` read afresh: a purchase that was already finished does not come back through `Transaction.updates`. A verified entitlement means restored, even when the sync threw, so the paywall never calls a restore failed while the app is unlocked. Backing out of the sign-in means cancelled, a network error means offline. Any other error, or a purchase that fails verification, means failed. Otherwise there is nothing to restore. The service only decides the outcome; the paywall holds its own restore state, so it goes with the sheet. From the first tap until the alert is closed, an unlock does not close the sheet on its own.
 - **Foreground.** The root modifier re-reads the entitlements each time the scene becomes active, so a subscription that ran out in the background locks the app at once. One local StoreKit read. The app writes no `scenePhase` handler for this; `refreshesOnForeground: false` in the configuration turns it off.
 - **Offline.** StoreKit 2 answers entitlement checks from its own local cache, so a subscriber keeps access without a network. Online, StoreKit's answer is definitive: no entitlement means no access.
 - **Verification failures.** Unverified transactions are not finished, as Apple recommends. They are logged and reported as `.verificationFailed`.
-- **Logging.** Under the app's own subsystem, category `Purchase`. `notice` for a cleared or revoked subscription, a kept fresh purchase and each restore outcome; `error` for failures, a paywall request no sheet picked up, and a lifetime product that does not load, with its identifier; `fault` for a setup that cannot work: a configuration that sells nothing, or missing words for the segments or the settings row; `debug` for each resolved check. See `LoggingStrategy.md`.
+- **Logging.** Under the app's own subsystem, category `Purchase`; `PaywallService(configuration:texts:features:subsystem:)` takes another subsystem. `notice` for a cleared or revoked subscription, a kept fresh purchase, a pending and an approved Ask to Buy purchase, a `require` replaced before the first check, and a restore that succeeded, found nothing, was cancelled or went offline; `error` for a failed purchase, a failed restore, a transaction that failed verification, a subscription status that could not be loaded, a paywall request no sheet picked up, and a lifetime product that does not load, with its identifier; `fault` for a setup that cannot work: a configuration that sells nothing, or missing words for the segments or the settings row; `debug` for each resolved check. See `LoggingStrategy.md`.
+
+## What the paywall uses from ButchKit
+
+The paywall is the largest part of ButchKit and the one with the most dependencies on other components (see the component table in [ButchKit.md](ButchKit.md#whats-in-the-library)). Everything it needs ships in the same package, so an app adds nothing:
+
+- **Logging.** `LoggerService` under the category `Purchase`, and `Error.logCode` for every error, see [LoggingStrategy.md](LoggingStrategy.md).
+- **`GatedWebView`** for the Privacy Policy and Terms of Service, with its defaults: JavaScript off, the cache bypassed, and only links on the same domain followed.
+- **`Device`**, read from `\.device`, to decide whether Manage opens Apple's sheet or the App Store, see [The settings row](#the-settings-row).
+- **The close button** of `sheetDismissButton(_:)`, on the policy sheet of the one-time side. Through its internal type, as the paywall's words are `LocalizedStringResource`s.
+
+From the system it uses StoreKit, SwiftUI and OSLog, and WidgetKit to reload the app's widget timelines when an app group is set. It is also the only part of ButchKit that ships resources: the placeholder photos of its own previews. Their `.storekit` file sits next to them but is excluded from the bundle.
 
 ## What it does not do
 
@@ -630,9 +648,9 @@ Deliberately, to stay one system:
 
 ## Rules for agents
 
-A compact checklist for anyone, human or AI, touching the paywall in a ButchKit project:
+A compact checklist for anyone, human or AI, touching the paywall in an app that uses ButchKit:
 
-- The paywall is defined in `Paywall.swift` and installed once with `.paywallEnvironment(_:texts:features:)` on the root. Nowhere else.
+- The paywall is defined in `Paywall.swift` and installed once with `.paywallEnvironment(_:texts:features:onEvent:)` on the root. Nowhere else.
 - Views read the service with `@Environment(PaywallService.self)`. Only an app with several windows, or with code outside its views that needs the answer, constructs one: once, in the `App`, handed to `.paywallEnvironment(_:)` on every scene and passed on by initializer. Never a second instance, never a global.
 - Gate views on `paywall.hasAccess`. Never read StoreKit or `Transaction` for the subscription state.
 - Draw locks, banners and read-only states from `paywall.isLocked`, never from `!hasAccess` or an `isInitialized` check of the app's own.

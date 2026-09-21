@@ -222,7 +222,7 @@ public extension View {
     /// ```swift
     /// RootView()
     ///     .onVerifiedEntitlementChange { entitlement in
-    ///         camera.recordingLimit = entitlement == .none ? .free : .unlimited
+    ///         exporter.limit = entitlement == .none ? .free : .unlimited
     ///     }
     ///     .paywallEnvironment(paywallConfig, texts: paywallTexts)
     /// ```

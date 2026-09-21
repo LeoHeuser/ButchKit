@@ -18,7 +18,7 @@ Five things make up every log message. Understand these and you can log.
 
 | Part | Meaning | Who decides |
 |---|---|---|
-| **Subsystem** | Which app | ButchKit, automatically from the bundle identifier |
+| **Subsystem** | Which app | ButchKit, automatically from the bundle identifier, or the process name when there is none |
 | **Category** | Which area of the app | You, once per area: `Camera`, `Audio`, `Purchase` |
 | **Level** | How important | You, per message. Decides whether the line survives in the field |
 | **Message** | A constant stem plus `key=value` fields | You |
@@ -53,6 +53,18 @@ Write the doc comment. It is what lets the next person — or the next agent —
 
 Add a category when an area actually logs, not in advance. An unused category is noise.
 
+### Categories ButchKit writes itself
+
+Some ButchKit components log under the app's subsystem as well, in categories of their own:
+
+| Category | Written by | What it covers |
+|---|---|---|
+| `LogMirror` | `LogMirror` | A harvest or write that failed |
+| `Purchase` | `PaywallService` | Purchases, restores, entitlement and status reads |
+| `UFEService` | `UFEService` | Every error shown to the user, as `User-facing error shown: level=… domain=… code=…`. `info` is written at `notice`, so it survives in the field. The description of the underlying error is private. Change the name with `UFEService(category:)` |
+
+The `Purchase` category in the setup example above is the same name on purpose: the app's own entitlement decisions then sit next to the paywall's under one filter. Choose a different name if you want them apart. Do not declare `LogMirror` yourself.
+
 ### Why `nonisolated`
 
 It is not decoration. As soon as a project sets `SWIFT_DEFAULT_ACTOR_ISOLATION = MainActor`, static properties without it belong to the main actor, and reading them from a background queue is a compile error — which is exactly where capture pipelines, sample buffers and network work live. One keyword on the extension covers the whole file.
@@ -83,16 +95,16 @@ Interpolated values must be `CustomStringConvertible`. Numbers, strings and dura
 `os.Logger` takes each interpolated value as an `@autoclosure @escaping` closure, so it can skip the work entirely when the message is dropped. Escaping closures that capture `self` in a class or actor need `self.` spelled out, so this does not compile inside one:
 
 ```swift
-// error: reference to property 'micFollowsCamera' in closure requires explicit
+// error: reference to property 'allowsCellular' in closure requires explicit
 //        use of 'self' to make capture semantics explicit
-Logger.audio.error("Microphone stays on the system default: requested=\(micFollowsCamera ? "system" : "front", privacy: .public)")
+Logger.sync.notice("Sync deferred: network=\(allowsCellular ? "any" : "wifiOnly", privacy: .public)")
 ```
 
-Writing `self.micFollowsCamera` silences it. Binding the value first is the better fix: the line gets shorter, the ternary stops competing with the message for attention, and there is no `self.` noise in the middle of the text.
+Writing `self.allowsCellular` silences it. Binding the value first is the better fix: the line gets shorter, the ternary stops competing with the message for attention, and there is no `self.` noise in the middle of the text.
 
 ```swift
-let requested = micFollowsCamera ? "system" : "front"
-Logger.audio.error("Microphone stays on the system default: requested=\(requested, privacy: .public) error=\(error.localizedDescription, privacy: .public)")
+let network = allowsCellular ? "any" : "wifiOnly"
+Logger.sync.notice("Sync deferred: network=\(network, privacy: .public)")
 ```
 
 Keep the value inside the interpolation, with `self.`, only when producing it is genuinely expensive and the message might be dropped. A local is computed either way; the interpolation is not. That case is rare — most logged values are counters, codes and flags.
@@ -139,10 +151,10 @@ User data is not negotiable.
 
 ```swift
 // Never: user content in a log
-Logger.script.notice("Script: \(text)")
+Logger.notes.notice("Note: \(text)")
 
 // Instead: derived values that cannot be traced back
-Logger.script.notice("Script loaded: words=\(wordCount, privacy: .public) locale=\(locale, privacy: .public)")
+Logger.notes.notice("Note loaded: words=\(wordCount, privacy: .public) locale=\(locale, privacy: .public)")
 ```
 
 - Interpolated values are **private by default** and appear as `<private>` in Console and in a sysdiagnose. They do **not** appear that way when the app reads its own log back: `LogExport`, `LogMirror` and every diagnostics file built from them show an unannotated value exactly as it was written. Only an explicit `privacy: .private` or `.private(mask: .hash)` survives into an export as a redaction.
@@ -153,7 +165,7 @@ Logger.script.notice("Script loaded: words=\(wordCount, privacy: .public) locale
 
 ```swift
 Logger.store.error("Save failed: \(error.logCode, privacy: .public) error=\(error.localizedDescription, privacy: .public)")
-Logger.receiptImport.error("File unreadable: ext=\(url.pathExtension, privacy: .public) \(error.logCode, privacy: .public)")
+Logger.fileImport.error("File unreadable: ext=\(url.pathExtension, privacy: .public) \(error.logCode, privacy: .public)")
 ```
 
 When in doubt, do not log it. The one protection that holds everywhere — Console, sysdiagnose, export — is that user data is never logged, at any level, with any annotation.
@@ -187,10 +199,10 @@ The counterexample is the classic bad error message: "An error occurred (6383)."
 
 | Situation | Poor | Good |
 |---|---|---|
-| Recognizer unavailable | `print("⚠️ not available")` | `Speech recognizer unavailable: locale=\(id, privacy: .public)` |
+| Server unreachable | `print("⚠️ not available")` | `Sync server unreachable: status=\(status, privacy: .public)` |
 | Audio session fails | `An error occurred (6383)` | `Audio session activation failed: code=\(err, privacy: .public) op=startRecording` |
 | Locale fallback | `fallback en-US` | `Locale fallback: requested=\(code, privacy: .public) resolved=en-US reason=noOnDeviceSupport` |
-| Missing permission | `not authorized` | `Speech permission denied: cannot start recording` |
+| Missing permission | `not authorized` | `Photo library access denied: cannot save export` |
 | Recording ended | `[AS] stopped` | `Recording stopped: duration=\(seconds, privacy: .public)s` |
 
 ## What we log
@@ -217,7 +229,7 @@ A single user action often crosses several areas. Carry one `LogSession` through
 let session = LogSession()
 
 Logger.camera.notice("Recording started: session=\(session.id, privacy: .public)")
-Logger.speech.notice("Recognition started: session=\(session.id, privacy: .public)")
+Logger.audio.notice("Audio session activated: session=\(session.id, privacy: .public)")
 Logger.camera.notice("Recording stopped: session=\(session.id, privacy: .public) duration=\(seconds, privacy: .public)s")
 ```
 
@@ -227,7 +239,21 @@ The identifier is interpolated explicitly. `os.Logger` takes a message the compi
 
 ## Logging from a view
 
-Views use the same static loggers as everything else; `Logger.purchase.notice(…)` inside an `onAppear` is the normal shape. The environment also carries a `LoggerService` as `\.log`, for the one case where a view hierarchy has to log under a subsystem other than the target's own: set `.environment(\.log, LoggerService(subsystem: "com.host.app"))` above it and write `log[.purchase].notice(…)` inside the body. Nothing else needs it, and categories stay declared in `LoggerCategories.swift` either way.
+Views use the same static loggers as everything else; `Logger.purchase.notice(…)` inside an `onAppear` is the normal shape. The environment also carries a `LoggerService` as `\.log`, for the one case where a view hierarchy has to log under a subsystem other than the target's own: set `.environment(\.log, LoggerService(subsystem: "com.host.app"))` above it and read the logger by category inside the body.
+
+`log[…]` takes a `LogCategory`. A string literal works (`log["Purchase"]`), and for autocompletion declare the category as a named value next to the `Logger` ones, in `LoggerCategories.swift`:
+
+```swift
+nonisolated extension LogCategory {
+    /// Entitlement checks and paywall decisions.
+    static let purchase: Self = "Purchase"
+}
+
+// inside the view
+log[.purchase].notice("Paywall presented: source=onboarding")
+```
+
+Nothing else needs the environment, and categories stay declared in `LoggerCategories.swift` either way.
 
 ## Reading logs
 
@@ -297,7 +323,7 @@ struct DiagnosticsView: View {
 
 Handle the error rather than swallowing it with `try?`. `fileURL` throws `LogExportError.noEntries` when nothing matched the window, and an empty attachment looks like a real report. Show a progress state: a read costs about a second, see below.
 
-`fileURL` writes a plain text file named `VideoSkript-Diagnostics-2026-08-05-1431-a3f91b2c.txt` and hands you its URL. Timestamps inside, and the stamp in the name, are in the device's time zone with the offset written out, so `10:52:02.923+02:00` is what the user's clock showed. The app name comes from the bundle, so there is nothing to configure and nothing to keep in sync when you rename the app. Share the URL, not the text: a shared string is pasted into the message body, a shared file arrives as an attachment — the difference between a report someone can open and one they have to scroll past. Every call writes its own file, so two shares can be open at once; delete it once the share sheet is done.
+`fileURL` writes a plain text file named `MyApp-Diagnostics-2026-08-05-1431-A3F91B2C.txt` and hands you its URL. Timestamps inside, and the stamp in the name, are in the device's time zone with the offset written out, so `10:52:02.923+02:00` is what the user's clock showed. The app name comes from the bundle, so there is nothing to configure and nothing to keep in sync when you rename the app. Share the URL, not the text: a shared string is pasted into the message body, a shared file arrives as an attachment — the difference between a report someone can open and one they have to scroll past. Every call writes its own file, so two shares can be open at once; delete it once the share sheet is done.
 
 Two more shapes exist for the same content. `mirror.text(since:)` returns a string, for showing the log on screen. `mirror.entries(since:)` returns structured values, for filtering or listing them.
 
@@ -319,7 +345,7 @@ What else to know:
 - **One mirror per app.** Apply `.logMirror(_:)` once, at the root, with a mirror the app owns in `@State`. Two mirrors on the same file are safe but read the store twice for the same lines.
 - **Capacity.** The file holds a million bytes by default and drops its oldest lines first. An app that logs the way this document asks writes a few dozen lines a day; that is months of history.
 - **Where it lives.** `Library/Logs/<subsystem>/` in the app's container, excluded from backup. The log is specific to one device, and values without a privacy annotation are in it as written — which changes nothing about what to log, and is the reason the file never travels on its own.
-- **A category of ButchKit's own.** The mirror logs its own failures under the category `LogMirror` in the app's subsystem, so a harvest that failed is visible in the very log it failed to keep. Do not declare that category yourself.
+- **A category of ButchKit's own.** The mirror logs its own failures under the category `LogMirror` in the app's subsystem, so a harvest that failed is visible in the very log it failed to keep. See [Categories ButchKit writes itself](#categories-butchkit-writes-itself).
 - **`debug` and `info` are not kept.** They were never written to disk by the system either. Anything you may need later has to be logged at `notice` or above; the mirror does not change that rule, it is the reason the rule pays off.
 
 ## Rules for agents
@@ -337,5 +363,5 @@ A compact checklist for anyone — human or AI — writing log statements in a B
 - Log an error as `\(error.logCode, privacy: .public)`; add `localizedDescription` only when its domain cannot carry a file name or user text.
 - No emoji, no drama, US English.
 - Put formatting inside the interpolation, never in a prebuilt string.
-- Add a category only when an area actually logs. `LogMirror` is ButchKit's own.
+- Add a category only when an area actually logs. `LogMirror`, `Purchase` and `UFEService` are also written by ButchKit.
 - One `LogMirror` per app, applied at the root with `.logMirror(_:)`. Exports a user sends go through it, not through `LogExport`.

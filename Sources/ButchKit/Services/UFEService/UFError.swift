@@ -15,7 +15,7 @@
  - `title` and `message` as `LocalizedStringKey` so strings live in the consuming app's catalog. Both
    resolve in `Errors.xcstrings`: the alert renders them with `Text(error:)`, because everything
    surfaced through this service is something the user reads after something went wrong.
- - `level` to map the error onto an `os.Logger` level and (later) onto presentation choices.
+ - `level` to map the error onto an `os.Logger` level.
  - `error` to optionally carry the underlying technical error for logging.
  
  Default implementations are provided so a conforming type only has to declare `title` and `message`.

@@ -37,7 +37,9 @@
  ufes.report(MyDomainError.network(underlying: someError))
  ```
  
- Each call is logged through `os.Logger` at the matching level and replaces any currently presented error.
+ Each call is logged through `os.Logger` and replaces any currently presented error. `info` logs at `notice`,
+ `warning` at `error` and `fault` at `fault`, so every level survives in the field. The underlying error
+ is logged as `Error.logCode`; its description stays private.
  
  */
 
@@ -92,14 +94,30 @@ public final class UFEService {
     }
     
     private func log(_ error: any UFError) {
-        let underlying = error.error.map { String(describing: $0) } ?? "nil"
-        switch error.level {
-        case .info:
-            logger.info("UFError [info] — underlying: \(underlying, privacy: .public)")
-        case .warning:
-            logger.error("UFError [warning] — underlying: \(underlying, privacy: .public)")
-        case .fault:
-            logger.fault("UFError [fault] — underlying: \(underlying, privacy: .public)")
+        let code = error.error?.logCode ?? "none"
+        let detail = error.error.map { String(describing: $0) } ?? "none"
+        logger.log(
+            level: error.level.logType,
+            "User-facing error shown: level=\(error.level.name, privacy: .public) \(code, privacy: .public) detail=\(detail, privacy: .private)"
+        )
+    }
+}
+
+private extension UFErrorLevel {
+    /// `info` maps to `.default`, which is `notice`: `Logger.info` does not survive in the field.
+    var logType: OSLogType {
+        switch self {
+        case .info: .default
+        case .warning: .error
+        case .fault: .fault
+        }
+    }
+
+    var name: String {
+        switch self {
+        case .info: "info"
+        case .warning: "warning"
+        case .fault: "fault"
         }
     }
 }

@@ -20,7 +20,7 @@
 /// An app that wants its own names switches over the cases instead, with a `default` that falls
 /// back to ``name``: without one, every new case stops the app from compiling.
 ///
-/// `source` is the app's own name for where the user hit the lock ("newScript", "settings"), the
+/// `source` is the app's own name for where the user hit the lock ("newItem", "settings"), the
 /// value passed to `PaywallService.present(source:)` or `require(source:_:)`. `productID` is the
 /// App Store product the user chose, so a paywall with several plans, or a lifetime purchase next
 /// to them, can tell which one sells.
@@ -46,7 +46,7 @@ public enum PaywallEvent: Sendable, Equatable {
     case purchaseFailed(source: String, productID: String, reason: PaywallPurchaseFailure)
     /// A transaction from the App Store failed verification and was not finished.
     case verificationFailed
-    /// Where an active subscriber stands, reported once per launch after the first entitlement
+    /// Where an active subscriber stands, reported once per service after the first entitlement
     /// check. A snapshot of a state rather than a step in the funnel: it answers how many
     /// subscribers have already canceled their trial or their paid period, and never counts as a
     /// conversion. Users without a running subscription, lifetime owners included, report nothing,

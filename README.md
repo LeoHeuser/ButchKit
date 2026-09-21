@@ -18,7 +18,7 @@ Or add it to your `Package.swift` dependencies:
 
 ```swift
 dependencies: [
-.package(url: "https://github.com/LeoHeuser/ButchKit", from: "1.0.0")
+.package(url: "https://github.com/LeoHeuser/ButchKit", from: "2.0.0")
 ]
 ```
 
@@ -28,8 +28,9 @@ Each component or element in this SDK is documented in code.
 
 Prose that applies across the library lives in [`Documentation/`](Documentation/ButchKit.md):
 
-- [Logging Strategy](Documentation/LoggingStrategy.md) — where, what, and at which level we log.
+- [Logging Strategy](Documentation/LoggingStrategy.md) — where, what, and at which level an app and ButchKit log.
 - [Paywall](Documentation/Paywall.md) — how an app sells its subscription: setup, gating, presenting, analytics.
+- [External packages](Documentation/ExternalPackages.md) — how an app lists its external packages and lets the user turn the optional ones off.
 
 ## Localization
 

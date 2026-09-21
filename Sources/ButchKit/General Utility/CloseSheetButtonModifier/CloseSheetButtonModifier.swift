@@ -1,5 +1,5 @@
 //
-//  closeSheetButtonModifier.swift
+//  CloseSheetButtonModifier.swift
 //  ButchKit
 //
 //  Created by Leo Heuser on 25.01.26.
@@ -8,7 +8,7 @@
 /**
 
  # CloseSheetButtonModifier
- Quite often a sheet itselfs need a close button to make it easily acessiboel for everyone to navigate within the views. Here the close CloseSheetButtonModifier helpts so that you do not need to redefine toolbars and dismiss buttons all the time.
+ A sheet often needs its own close button so that everyone can leave it easily. `View.sheetDismissButton(_:)` adds one, so the toolbar and dismiss action are not redefined in every sheet.
 
  */
 

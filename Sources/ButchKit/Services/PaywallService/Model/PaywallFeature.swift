@@ -19,7 +19,7 @@ import SwiftUI
 ///     PaywallFeature(title: "paywall.feature.1.title",
 ///                    description: "paywall.feature.1.description",
 ///                    image: .payWallFeature1),
-///     // A page with no photo, on the paywall's dark ground:
+///     // A page with no photo, its text centred:
 ///     PaywallFeature(title: "paywall.feature.2.title",
 ///                    description: "paywall.feature.2.description"),
 ///     // A headline on its own:
@@ -33,7 +33,8 @@ public struct PaywallFeature: Identifiable, Sendable {
     public let title: LocalizedStringResource
     /// The line below the title. `nil` shows the title on its own.
     public let description: LocalizedStringResource?
-    /// The photo behind the text. `nil` leaves the paywall's dark ground bare.
+    /// The photo behind the text. `nil` centres the text on the paywall's ground, dark when
+    /// another page carries a photo and following the device otherwise.
     public let image: ImageResource?
     /// Whether the page speaks of the introductory offer, "One month free" and the like. Such a
     /// page shows only to a user who can still get that offer, see

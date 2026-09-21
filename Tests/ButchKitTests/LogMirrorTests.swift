@@ -34,20 +34,7 @@ struct LogMirrorTests {
         }
     }
 
-    /// The unified logging system takes a message asynchronously, so it is not guaranteed to be
-    /// readable on the very next statement. Poll rather than read once and fail on a loaded
-    /// machine. Every read through the mirror harvests, so polling the mirror polls the store.
-    private func waitForResult<T>(
-        timeout: Duration = .seconds(15),
-        _ read: () async throws -> T?
-    ) async throws -> T? {
-        let deadline = ContinuousClock.now + timeout
-        while ContinuousClock.now < deadline {
-            if let result = try await read() { return result }
-            try await Task.sleep(for: .milliseconds(200))
-        }
-        return try await read()
-    }
+    // Every read through the mirror harvests, so `waitForResult` polling the mirror polls the store.
 
     private func lines(containing marker: String, in mirror: LogMirror) async throws -> [LogEntry] {
         try await mirror.entries(since: .distantPast).filter { $0.message.contains(marker) }

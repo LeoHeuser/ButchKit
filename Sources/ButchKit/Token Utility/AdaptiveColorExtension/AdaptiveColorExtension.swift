@@ -1,6 +1,6 @@
 //
 //  AdaptiveColorExtension.swift
-//  Butch
+//  ButchKit
 //
 //  Created by Leo Heuser on 26.09.25.
 //

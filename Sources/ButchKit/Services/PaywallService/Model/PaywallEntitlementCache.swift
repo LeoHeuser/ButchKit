@@ -14,7 +14,7 @@ import Foundation
 /// cannot reach the service, but reads this.
 ///
 /// ```swift
-/// let entitlement = PaywallEntitlementCache(appGroupID: "group.design.heuser.App").entitlement
+/// let entitlement = PaywallEntitlementCache(appGroupID: "group.com.example.App").entitlement
 /// ```
 ///
 /// `nil` means nothing is known yet, never "does not pay": the app has not run since the install,

@@ -285,9 +285,9 @@ struct PaywallServiceTests {
     func requireDefersWhenUnsubscribed() {
         let service = makeService()
         var ran = false
-        service.require(source: "newScript") { ran = true }
+        service.require(source: "newItem") { ran = true }
         #expect(!ran)
-        #expect(service.presentedRequest?.source == "newScript")
+        #expect(service.presentedRequest?.source == "newItem")
     }
 
     /// Closing the paywall without buying must not run the gated action later by accident.
@@ -295,7 +295,7 @@ struct PaywallServiceTests {
     func dismissWithoutUnlockDropsAction() {
         let service = makeService()
         var ran = false
-        service.require(source: "newScript") { ran = true }
+        service.require(source: "newItem") { ran = true }
         service.dismissPaywall()
         service.paywallDidDismiss()
         #expect(!ran)
@@ -307,7 +307,7 @@ struct PaywallServiceTests {
     func newRequestDropsStaleAction() {
         let service = makeService()
         var ran = false
-        service.require(source: "newScript") { ran = true }
+        service.require(source: "newItem") { ran = true }
         service.present(source: "settings")
         service.handleSuccessfulPurchase(productID: "yearly", subscriptionGroupID: "TEST")
         service.paywallDidDismiss()
@@ -318,7 +318,7 @@ struct PaywallServiceTests {
     func dismissAfterUnlockRunsAction() {
         let service = makeService()
         var ran = false
-        service.require(source: "newScript") { ran = true }
+        service.require(source: "newItem") { ran = true }
         service.handleSuccessfulPurchase(productID: "yearly", subscriptionGroupID: "TEST")
         service.paywallDidDismiss()
         #expect(ran)
@@ -329,7 +329,7 @@ struct PaywallServiceTests {
         let service = makeService()
         service.handleSuccessfulPurchase(productID: "yearly", subscriptionGroupID: "TEST")
         var ran = false
-        service.require(source: "newScript") { ran = true }
+        service.require(source: "newItem") { ran = true }
         #expect(ran)
         #expect(service.presentedRequest == nil)
     }

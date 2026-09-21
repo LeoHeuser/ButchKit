@@ -16,7 +16,7 @@ import Foundation
 /// let session = LogSession()
 ///
 /// Logger.camera.notice("Recording started: session=\(session.id, privacy: .public)")
-/// Logger.speech.notice("Recognition started: session=\(session.id, privacy: .public)")
+/// Logger.audio.notice("Audio session activated: session=\(session.id, privacy: .public)")
 /// Logger.camera.notice("Recording stopped: session=\(session.id, privacy: .public) duration=\(seconds, privacy: .public)s")
 /// ```
 ///

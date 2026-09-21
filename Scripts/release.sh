@@ -7,8 +7,8 @@
 # see README.md, "Releasing". Calling it by hand skips that gate and is only
 # the fallback.
 #
-# The release covers ButchKit only. The apps pick up the new version through
-# their own pipelines; this script never touches them.
+# The release covers ButchKit only. Apps that depend on it pick up the new
+# version through their own dependency updates; this script never touches them.
 #
 # The GitHub release is a readable changelog per version; SwiftPM only needs
 # the tag. Its notes are the commit subjects since the previous tag, because

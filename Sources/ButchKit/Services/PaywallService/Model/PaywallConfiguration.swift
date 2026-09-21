@@ -14,9 +14,9 @@ import Foundation
 ///
 /// ```swift
 /// let paywallConfig = PaywallConfiguration(
-///     subscriptionGroupID: "21900977",
-///     privacyPolicyURL: "https://heuser.design/app/privacy",
-///     termsOfServiceURL: "https://heuser.design/app/terms"
+///     subscriptionGroupID: "00000000",
+///     privacyPolicyURL: "https://example.com/privacy",
+///     termsOfServiceURL: "https://example.com/terms"
 /// )
 /// ```
 ///
@@ -30,7 +30,7 @@ import Foundation
 /// leaves them out. An app that sells nothing but those leaves out the group instead:
 ///
 /// ```swift
-/// let paywallConfig = PaywallConfiguration(lifetimeProductIDs: ["design.heuser.App.full_version"])
+/// let paywallConfig = PaywallConfiguration(lifetimeProductIDs: ["com.example.App.full_version"])
 /// ```
 public struct PaywallConfiguration: Sendable, Equatable {
     /// The App Store Connect subscription group whose members unlock the app. `nil` for an app

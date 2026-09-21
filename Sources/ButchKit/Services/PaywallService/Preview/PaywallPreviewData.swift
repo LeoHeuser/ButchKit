@@ -68,16 +68,16 @@ extension PaywallFeature {
     /// The four shapes a page can take. Every preview in the module draws from these, so the
     /// sample copy lives in one place.
     static let previewFull = PaywallFeature(
-        title: "Write without limits",
-        description: "Unlimited scripts, scenes and characters.",
+        title: "Everything unlocked",
+        description: "Every feature, with no limits.",
         image: .previewPhoto(1)
     )
 
     static let previewWithoutDescription = PaywallFeature(title: "Everywhere you are", image: .previewPhoto(2))
 
     static let previewWithoutPhoto = PaywallFeature(
-        title: "Export like a pro",
-        description: "Industry-standard PDF and Final Draft files in one tap."
+        title: "Export in every format",
+        description: "Share your work in the format you need, in one tap."
     )
 
     static let previewTitleOnly = PaywallFeature(title: "One subscription, every device")
@@ -93,8 +93,8 @@ extension [PaywallFeature] {
             image: .previewPhoto(2)
         ),
         PaywallFeature(
-            title: "Export like a pro",
-            description: "Industry-standard PDF and Final Draft files in one tap.",
+            title: "Export in every format",
+            description: "Share your work in the format you need, in one tap.",
             image: .previewPhoto(3)
         )
     ]

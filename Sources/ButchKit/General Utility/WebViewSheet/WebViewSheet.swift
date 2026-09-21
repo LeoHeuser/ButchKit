@@ -140,7 +140,7 @@ private struct SafariView: UIViewControllerRepresentable {
     @Previewable @State var isPresented = true
 
     Button("Show Sheet") { isPresented = true }
-        .webViewSheet(isPresented: $isPresented, url: URL(string: "https://en.wikipedia.org/wiki/Ivy_Lee")!, dismissTitle: "Close")
+        .webViewSheet(isPresented: $isPresented, url: URL(string: "https://www.apple.com")!, dismissTitle: "Close")
 }
 
 #Preview("On Same Domain") {

@@ -8,11 +8,11 @@ Platform support: iOS/iPadOS 17.0+ and macOS 14.0+. Builds with Swift 6.2 or new
 
 ## Documents
 
-Prose that applies across the library. These are binding for how we build, not descriptions of what exists.
+Prose that applies across the library. These are binding for how ButchKit is built and used, not descriptions of what exists.
 
-- [Logging Strategy](LoggingStrategy.md) — where, what, and at which level we log.
+- [Logging Strategy](LoggingStrategy.md) — where, what, and at which level an app and ButchKit log.
 - [Paywall](Paywall.md) — how an app sells its subscription: setup, gating, presenting, analytics.
-- [External packages](ExternalPackages.md) — how an app lists its external packages and lets the user turn the optional ones off: setup, gating, reacting to the switch, TelemetryDeck.
+- [External packages](ExternalPackages.md) — how an app lists its external packages and lets the user turn the optional ones off: setup, gating, reacting to the switch, with an analytics SDK as the worked example.
 
 ## Localization
 
@@ -24,7 +24,7 @@ it and extracts it into the app's catalog like any other string. The app owns th
 keys and the translations, nothing is added to a catalog by hand, and a ButchKit surface speaks
 every language the app does.
 
-Which table a key lives in is the app's choice. The convention across our apps:
+Which table a key lives in is the app's choice. The convention ButchKit's own types assume:
 
 | Table | For |
 |---|---|
@@ -42,6 +42,24 @@ table follows what the string *is*, not where it appears.
 
 Every type is documented in code. This is the map.
 
+The library ships as one target, but it is organised as components that each live in their own
+folder and can be read, used and eventually split out on their own. Each component below states
+what it **uses** from the rest of ButchKit. Nothing in a component is specific to one app: every
+text, identifier, product and URL comes from the app that uses it.
+
+| Component | Uses from ButchKit | Resources |
+|---|---|---|
+| Logging | nothing | none |
+| User-facing errors | Logging, `StringTable` | none |
+| Paywall | Logging, `GatedWebView`, `Device`, the sheet close button | preview images and a preview StoreKit file |
+| External packages | nothing | none |
+| Web views (`GatedWebView`, `WebViewSheet`, `WebViewButton`) | the sheet close button | none |
+| Everything else in General and Token utility | nothing | none |
+
+The paywall reaches the sheet close button through the internal `DismissSheetButton`, not the
+public `sheetDismissButton(_:)`, because it passes a `LocalizedStringResource`. That is the one
+internal type shared across components: split into separate targets, it has to become `package`.
+
 ### Logging
 
 `Sources/ButchKit/Services/LoggerService/`
@@ -50,8 +68,8 @@ Every type is documented in code. This is the map.
 - `LoggerService` — binds a group of loggers to one subsystem, for app extensions, tests and export.
 - `LogCategory` — the area of the app a message belongs to.
 - `LogSession` — a short identifier that ties one flow together across categories.
-- `LogMirror`, `View.logMirror(_:)`, `EnvironmentValues.logMirror` — keeping the app's persisted logs across launches, and exporting them for a bug report.
-- `LogExport`, `LogEntry`, `LogLevel` — reading the running launch's own logs back, without a file behind them.
+- `LogMirror`, `View.logMirror(_:)`, `EnvironmentValues.logMirror` — keeping the app's persisted logs across launches, and exporting them for a bug report. `harvest()` copies the latest entries in on demand.
+- `LogExport`, `LogEntry`, `LogLevel`, `LogExportError` — reading the running launch's own logs back, without a file behind them.
 - `Error.logCode` — `domain=… code=…` for a log line, in place of a description that may quote a file name.
 - `EnvironmentValues.log` — the logger inside a SwiftUI view.
 
@@ -62,12 +80,13 @@ Every type is documented in code. This is the map.
 - `UFEService` — collects errors from anywhere and surfaces them through one native alert.
 - `UFError`, `UFErrorLevel` — the shape an error needs to be presentable.
 - `View.userFacingErrors(_:dismissTitle:)` — root-level integration.
+- `View.userFacingErrors(dismissTitle:)` — reinforcement for views that are themselves sheets.
 
 ### Paywall
 
 `Sources/ButchKit/Services/PaywallService/`
 
-- `View.paywallEnvironment(_:texts:features:)` — root-level integration. Creates the service, injects it, refreshes on foreground and attaches the paywall sheet.
+- `View.paywallEnvironment(_:texts:features:onEvent:)` — root-level integration. Creates the service, injects it, refreshes on foreground and attaches the paywall sheet.
 - `View.paywallEnvironment(_:)` — the same for a `PaywallService` the app owns: several windows, or code outside the views that needs the answer.
 - `PaywallService` — `hasAccess` and `entitlement`, fed by StoreKit 2, `verifiedEntitlement` once StoreKit has confirmed them, `isLocked` for drawing the locked state, `onVerifiedEntitlementChange` for whatever follows the entitlement outside a view, `present(source:)` and `require(source:_:)` to show the paywall from anywhere, and `restorePurchases()` for a settings row.
 - `PaywallConfiguration` — the subscription group and the lifetime products, at least one of the two, policy URLs, the marketing pages' height and the app group for the cache.
@@ -78,7 +97,7 @@ Every type is documented in code. This is the map.
 - `PaywallEvent` — the funnel, forwarded through `PaywallService.onEvent` to the app's analytics, each with a stable `name` and `parameters`.
 - `PaywallPurchaseFailure` — the kind of a failed purchase, what `PaywallEvent.purchaseFailed` carries in place of the error's text.
 - `PaywallRestoreOutcome` — how `restorePurchases()` ended.
-- `SubscriptionPhase` — trial or paid, renewing or canceled: the once-per-launch snapshot `PaywallEvent.subscriptionStatus` carries.
+- `SubscriptionPhase` — trial or paid, renewing or canceled: the once-per-service snapshot `PaywallEvent.subscriptionStatus` carries.
 - `PaywallRequest` — the presentation in flight.
 - `PaywallStatusRow` — the settings row: plan name, renewal date and management; the lifetime purchase, with management while a subscription still renews; or the offer.
 - `PaywallStatusReader` — the same status and actions as a `PaywallStatus`, for an app that draws its own row.
@@ -102,8 +121,8 @@ Every type is documented in code. This is the map.
 - `WebViewButton` — a button that presents one.
 - `View.webViewSheet(isPresented:url:dismissTitle:title:allowsBrowsing:)`, `View.webViewSheet(item:url:dismissTitle:title:allowsBrowsing:)` — a web page in a sheet: Safari by default (`.everywhere`), or a `GatedWebView` for `.onSameDomain` and `.none`.
 - `View.sheetDismissButton(_:)` — a native close button for sheets, named by the app.
-- `View.useContentHeightPresentationDetent` — sizes a sheet to its content.
-- `View.onShake(isEnabled:respectsShakeToUndoSetting:perform:)` — runs an action when the device is shaken (iOS only).
+- `View.useContentHeightPresentationDetent`, `ContentHeightPresentationDetentModifier` — sizes a sheet to its content.
+- `View.onShake(isEnabled:respectsShakeToUndoSetting:perform:)` — runs an action when the device is shaken (iOS only). `Notification.Name.deviceDidShake` is the same signal for code without a view.
 - `StringTable`, `Text.init(error:)` — which catalog a string resolves in.
 - `Device` — iPhone, iPad or Mac: `@Environment(\.device)` in views, `Device.current` everywhere else. A hardware answer, not a layout one.
 
@@ -111,4 +130,4 @@ Every type is documented in code. This is the map.
 
 `Sources/ButchKit/Token Utility/`
 
-- `Color.adaptiveColor(...)` — a colour that resolves per platform.
+- `Color.adaptiveColor(light:dark:)` — a colour that resolves to one value in light appearance and another in dark.

@@ -84,7 +84,7 @@ public extension Notification.Name {
     /// Posted on the main actor after a completed shake gesture. The object is the `UIWindow` that received it.
     ///
     /// The way in for anything that has no view body: a service, an actor, a view controller. Views use
-    /// `View.onShake(isEnabled:perform:)`, which additionally checks that the view is on screen — an observer
+    /// `View.onShake(isEnabled:respectsShakeToUndoSetting:perform:)`, which additionally checks that the view is on screen — an observer
     /// registered here does not, and hears every shake in the app.
     static let deviceDidShake = Notification.Name("design.heuser.ButchKit.deviceDidShake")
 }

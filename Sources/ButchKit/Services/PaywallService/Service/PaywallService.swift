@@ -33,7 +33,7 @@
 
  if paywall.hasAccess { … }                              // gate a feature
  paywall.present(source: "settings")                      // show the paywall
- paywall.require(source: "newScript") { addScript() }     // run now, or right after the unlock
+ paywall.require(source: "newItem") { addItem() }         // run now, or right after the unlock
  ```
 
  ## What it does behind the scenes
