@@ -5,8 +5,12 @@ on:
     branches: [main]
   pull_request:
   workflow_dispatch:
-  # The Release workflow runs the suite through this before it tags.
+  # The Release workflow runs the suite through this before it tags, on the commit it will tag.
   workflow_call:
+    inputs:
+      ref:
+        type: string
+        required: false
 
 concurrency:
   # Called from Release, github.workflow is "Release", so that run and the push run on main
@@ -28,6 +32,8 @@ jobs:
       matrix: ${{ steps.matrix.outputs.matrix }}
     steps:
       - uses: actions/checkout@v4
+        with:
+          ref: ${{ inputs.ref || github.sha }}
       - id: matrix
         run: |
           matrix=$(Scripts/ci-matrix.sh)
@@ -44,6 +50,8 @@ jobs:
         include: ${{ fromJSON(needs.versions.outputs.matrix) }}
     steps:
       - uses: actions/checkout@v4
+        with:
+          ref: ${{ inputs.ref || github.sha }}
       # Package.swift is swift-tools-version 6.2, so the newest Xcode on the image is selected.
       # macos-15 would otherwise build with its default Xcode 16.4.
       - name: Xcode
@@ -107,3 +115,14 @@ jobs:
             | tee xcodebuild.log
           grep -qE "Test run with [1-9][0-9]* tests .* passed" xcodebuild.log \
             || { echo "::error::No swift-testing run reported; the suite did not execute."; exit 1; }
+
+  # The one check the main ruleset requires. The test jobs are named after the matrix, which moves
+  # with Package.swift and the runner images, so requiring them by name would block every pull
+  # request once a name changes.
+  passed:
+    name: CI passed
+    needs: test
+    if: always()
+    runs-on: ubuntu-latest
+    steps:
+      - run: '[[ "${{ needs.test.result }}" == success ]]'

@@ -55,3 +55,7 @@ Follow `Documentation/LoggingStrategy.md`. Its "Rules for agents" section at the
 - NEVER use `print` or `NSLog` for diagnostics — use `os.Logger`
 - Never mark an interpolated value `public` if it can contain user data
 - Use `notice` or higher for anything that must be visible in the field; `debug` and `info` do not survive there
+
+# Git
+
+`main` is protected: never push to it. Work on a branch, push it and open a pull request, as in `README.md`, "Changing main". A branch named after a version, such as `2.1.0`, releases that version when merged.

@@ -6,8 +6,8 @@
 #
 # Usage: Scripts/check-version.sh 2.1.0
 #
-# The one place these rules live. The post-merge hook, the Release workflow
-# and release.sh all ask it.
+# The one place these rules live. The Release workflow and release.sh both
+# ask it.
 set -euo pipefail
 
 version=${1:?usage: check-version.sh <version, e.g. 2.0.24>}

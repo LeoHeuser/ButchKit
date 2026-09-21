@@ -3,9 +3,9 @@
 #
 # Usage: Scripts/release.sh 2.1.0
 #
-# The Release workflow runs this once build and tests passed on macOS and iOS;
-# see README.md, "Releasing". Calling it by hand skips that gate and is only
-# the fallback.
+# The Release workflow runs this when a version pull request is merged and
+# build and tests passed on macOS and iOS; see README.md, "Releasing". Calling
+# it by hand skips that gate and is only the fallback.
 #
 # The release covers ButchKit only. Apps that depend on it pick up the new
 # version through their own dependency updates; this script never touches them.
@@ -21,7 +21,9 @@ kit=$(cd "$(dirname "$0")/.." && pwd)
 
 cd "$kit"
 Scripts/check-version.sh "$version"
-[[ $(git branch --show-current) == main ]] || { echo "ButchKit is not on main"; exit 1 }
+# The workflow checks out the tested commit, not the branch, so HEAD only has to be on main.
+git fetch -q origin main
+git merge-base --is-ancestor HEAD origin/main || { echo "HEAD is not on main"; exit 1 }
 [[ -z $(git status --porcelain) ]] || { echo "ButchKit has uncommitted changes"; exit 1 }
 gh auth status >/dev/null 2>&1 || { echo "gh is not logged in, run: gh auth login"; exit 1 }
 
