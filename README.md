@@ -44,3 +44,13 @@ with the **ButchKit Previews** scheme. Only that scheme selects the StoreKit fil
 previews load their products from. The package's own scheme stays free of it, so an app workspace
 that includes a local ButchKit checkout sees no StoreKit settings of ButchKit's. Close that app
 workspace first: Xcode opens a package in one window at a time.
+
+### Releasing
+
+A release is a branch named after its version, such as `2.1.0` or `2.0.24`, merged into `main`
+in Xcode. The merge tags `v2.1.0`, pushes `main` and the tag, and publishes the GitHub release,
+with a notification for the outcome. A branch with any other name stays merged but gets no tag.
+
+This runs from [`Scripts/git-hooks/post-merge`](Scripts/git-hooks/post-merge) and needs, once per
+clone, `git config core.hooksPath Scripts/git-hooks` and a logged-in `gh`. By hand:
+`Scripts/release.sh 2.1.0` on `main`.

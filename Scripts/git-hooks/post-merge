@@ -1,0 +1,29 @@
+#!/bin/zsh
+# Releases ButchKit when a version branch such as 2.0.24 is merged into main,
+# see README.md, "Releasing". Active once `git config core.hooksPath
+# Scripts/git-hooks` is set in the clone.
+#
+# The branch name is read from the reflog entry the merge just wrote
+# ("merge 2.0.24: Fast-forward"), because a fast-forward leaves no other trace
+# of it. A pull writes "pull: ..." and is ignored.
+#
+# Xcode does not show hook output, so the outcome is posted as a notification.
+# A hook cannot undo the merge: a branch with any other name stays merged, it
+# just gets no tag and no release.
+
+[[ $(git branch --show-current) == main ]] || exit 0
+action=$(git reflog -1 --format=%gs)
+[[ $action == "merge "* ]] || exit 0
+branch=${${action#merge }%%:*}
+
+notify() {
+  osascript -e 'on run argv' -e 'display notification (item 2 of argv) with title (item 1 of argv)' -e 'end run' "$1" "$2"
+}
+
+if output=$(Scripts/release.sh "$branch" 2>&1); then
+  notify "ButchKit v$branch released" "${output##*$'\n'}"
+else
+  print -r -- "$output" >&2
+  notify "No ButchKit release for $branch" "${output##*$'\n'}"
+  exit 1
+fi

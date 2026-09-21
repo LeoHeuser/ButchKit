@@ -30,6 +30,28 @@ jobs:
     runs-on: macos-latest
     steps:
       - uses: actions/checkout@v4
+      # The runner image does not always ship a simulator runtime for its default Xcode, and the
+      # device names change with every runtime. The runtime is downloaded only when it is missing,
+      # and the test runs on whichever iPhone exists.
+      - name: Simulator
+        id: simulator
+        run: |
+          iphone() {
+            xcrun simctl list devices available -j \
+              | jq -r '[.devices | to_entries[] | select(.key | contains("iOS")) | .value[] | select(.name | startswith("iPhone"))][0].udid // empty'
+          }
+          udid=$(iphone)
+          if [ -z "$udid" ]; then
+            xcodebuild -downloadPlatform iOS
+            udid=$(iphone)
+          fi
+          if [ -z "$udid" ]; then
+            runtime=$(xcrun simctl list runtimes available -j | jq -c '[.runtimes[] | select(.platform == "iOS")] | last')
+            udid=$(xcrun simctl create "CI iPhone" \
+              "$(echo "$runtime" | jq -r '[.supportedDeviceTypes[] | select(.productFamily == "iPhone")] | last | .identifier')" \
+              "$(echo "$runtime" | jq -r .identifier)")
+          fi
+          echo "udid=$udid" >> "$GITHUB_OUTPUT"
       # The scheme reports TEST SUCCEEDED with "Executed 0 tests" because the suite is
       # swift-testing and the XCTest counter stays at zero. The swift-testing run is the real one
       # and fails the job on its own, so the count below is checked rather than trusted.
@@ -38,7 +60,7 @@ jobs:
           set -o pipefail
           xcodebuild test \
             -scheme ButchKit \
-            -destination "platform=iOS Simulator,name=iPhone 17,OS=latest" \
+            -destination "id=${{ steps.simulator.outputs.udid }}" \
             | tee xcodebuild.log
           grep -qE "Test run with [1-9][0-9]* tests .* passed" xcodebuild.log \
             || { echo "::error::No swift-testing run reported; the suite did not execute."; exit 1; }
