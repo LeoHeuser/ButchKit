@@ -92,6 +92,31 @@ struct PaywallEntitlementTests {
     }
 }
 
+@Suite("PaywallPolicyLine")
+struct PaywallPolicyLineTests {
+    /// StoreKit words the line over the plans "Terms of Service and Privacy Policy". The lifetime
+    /// side draws its own and has to say it in the same order, or the two halves of one paywall
+    /// read differently.
+    @Test("Names the terms first, then the privacy policy")
+    func order() {
+        let sentence = PaywallOneTimeStore.policySentence(terms: "TERMS", privacy: "PRIVACY", connector: "AND")
+        #expect(String(sentence.characters) == "TERMS AND PRIVACY")
+    }
+
+    /// Both halves are links, or one of the two pages cannot be opened at all. They carry a scheme
+    /// of ours, which the line catches itself rather than letting it leave for a browser.
+    @Test("Makes both titles links, and only the titles")
+    func links() {
+        let sentence = PaywallOneTimeStore.policySentence(terms: "TERMS", privacy: "PRIVACY", connector: "AND")
+        let links = sentence.runs.compactMap(\.link)
+        #expect(links == [PaywallOneTimeStore.termsURL, PaywallOneTimeStore.privacyURL])
+
+        // The connecting word is not a link, and is set apart from the two that are.
+        let word = sentence.runs.first { $0.link == nil }
+        #expect(word?.foregroundColor == .secondary)
+    }
+}
+
 @Suite("PaywallEntitlementSnapshot")
 struct PaywallEntitlementSnapshotTests {
     private let config = PaywallConfiguration(subscriptionGroupID: "TEST", lifetimeProductIDs: ["lifetime"])

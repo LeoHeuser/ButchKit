@@ -103,7 +103,7 @@ struct PaywallOneTimeStore: View {
             let texts = paywall.texts.sheet
             Group {
                 if let connector = texts.policyConnector {
-                    Text(policySentence(policies, connector: connector))
+                    Text(Self.policySentence(terms: texts.termsOfServiceTitle, privacy: texts.privacyPolicyTitle, connector: connector))
                         .environment(\.openURL, OpenURLAction { url in
                             open(url, in: policies)
                         })
@@ -130,16 +130,19 @@ struct PaywallOneTimeStore: View {
 
     /// Terms first, then the privacy policy, as StoreKit words it over the plans. The two titles
     /// are links on a scheme of ours, which never leaves the sheet: ``open(_:in:)`` catches it.
-    private func policySentence(_ policies: (privacy: String, terms: String), connector: LocalizedStringResource) -> AttributedString {
-        var sentence = link(String(localized: paywall.texts.sheet.termsOfServiceTitle), to: Self.termsURL)
+    ///
+    /// A space on each side of the connecting word, so an app translates the bare conjunction.
+    /// Static and pure, so the order and the two links can be tested without StoreKit.
+    static func policySentence(terms: LocalizedStringResource, privacy: LocalizedStringResource, connector: LocalizedStringResource) -> AttributedString {
+        var sentence = link(String(localized: terms), to: termsURL)
         var word = AttributedString(" \(String(localized: connector)) ")
         word.foregroundColor = .secondary
         sentence += word
-        sentence += link(String(localized: paywall.texts.sheet.privacyPolicyTitle), to: Self.privacyURL)
+        sentence += link(String(localized: privacy), to: privacyURL)
         return sentence
     }
 
-    private func link(_ title: String, to url: URL) -> AttributedString {
+    private static func link(_ title: String, to url: URL) -> AttributedString {
         var text = AttributedString(title)
         text.link = url
         return text
@@ -162,8 +165,8 @@ struct PaywallOneTimeStore: View {
 
     // Stand-ins for the two pages, never opened as URLs. A scheme of ours so nothing else can
     // claim them, and force-unwrapped because both are literals that cannot fail to parse.
-    private static let termsURL = URL(string: "butchkit-paywall:policy/terms")!
-    private static let privacyURL = URL(string: "butchkit-paywall:policy/privacy")!
+    static let termsURL = URL(string: "butchkit-paywall:policy/terms")!
+    static let privacyURL = URL(string: "butchkit-paywall:policy/privacy")!
 }
 
 /// One lifetime product as a card across the full width, in the look of Apple's plan cards on the
