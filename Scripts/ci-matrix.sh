@@ -24,7 +24,8 @@ entry() { jq -nc --arg platform $1 --arg name $2 --arg runner $3 --arg version $
 
 {
   entry ios "iOS $ios_min" macos-26 "$ios_min"
-  (( ${ios_min%%.*} < 26 )) && entry ios "iOS 26.0" macos-26 26.0
+  # Apple no longer offers the 26.0 runtime for download; macos-15 has it installed.
+  (( ${ios_min%%.*} < 26 )) && entry ios "iOS 26.0" macos-15 26.0
   entry ios "iOS latest" "$latest" latest
 
   if (( mac_oldest > ${mac_min%%.*} )); then
