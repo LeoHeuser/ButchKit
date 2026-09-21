@@ -14,52 +14,91 @@ concurrency:
   group: ci-${{ github.workflow }}-${{ github.ref }}
   cancel-in-progress: true
 
+env:
+  # The runner with the newest Xcode, where "latest" is tested. Today only the xcode-27 preview
+  # image has Xcode 27, iOS 27 and macOS 27. Switch to macos-latest once GitHub ships Xcode 27 in
+  # a regular image and retires the preview label.
+  LATEST_RUNNER: xcode-27
+
 jobs:
-  macos:
-    name: macOS
-    runs-on: macos-latest
+  versions:
+    name: Versions
+    runs-on: macos-26
+    outputs:
+      matrix: ${{ steps.matrix.outputs.matrix }}
     steps:
       - uses: actions/checkout@v4
-      # Package.swift is swift-tools-version 6.2, and the sources use `@Entry` and an isolated
-      # deinit. SwiftPM names an older toolchain itself; this is here to read it off the log.
-      - name: Toolchain
-        run: swift --version
+      - id: matrix
+        run: |
+          matrix=$(Scripts/ci-matrix.sh)
+          echo "$matrix" | jq -r '.[] | .name + " on " + .runner'
+          echo "matrix=$matrix" >> "$GITHUB_OUTPUT"
+
+  test:
+    name: ${{ matrix.name }}
+    needs: versions
+    runs-on: ${{ matrix.runner }}
+    strategy:
+      fail-fast: false
+      matrix:
+        include: ${{ fromJSON(needs.versions.outputs.matrix) }}
+    steps:
+      - uses: actions/checkout@v4
+      # Package.swift is swift-tools-version 6.2, so the newest Xcode on the image is selected.
+      # macos-15 would otherwise build with its default Xcode 16.4.
+      - name: Xcode
+        run: |
+          sudo xcode-select -s "$(ls -d /Applications/Xcode_*.app | sort -V | tail -1)"
+          xcodebuild -version
+          swift --version
+
+      - name: macOS version
+        if: matrix.platform == 'macos'
+        run: sw_vers
       - name: Build
+        if: matrix.platform == 'macos'
         run: swift build
       - name: Test
+        if: matrix.platform == 'macos'
         run: swift test
 
-  ios:
-    name: iOS
-    runs-on: macos-latest
-    steps:
-      - uses: actions/checkout@v4
-      # The runner image does not always ship a simulator runtime for its default Xcode, and the
-      # device names change with every runtime. The runtime is downloaded only when it is missing,
-      # and the test runs on whichever iPhone exists.
+      # Runner images carry only some simulator runtimes, and device names change with every
+      # runtime. The requested runtime is downloaded when missing, and an iPhone is created on it.
       - name: Simulator
+        if: matrix.platform == 'ios'
         id: simulator
         run: |
-          iphone() {
-            xcrun simctl list devices available -j \
-              | jq -r '[.devices | to_entries[] | select(.key | contains("iOS")) | .value[] | select(.name | startswith("iPhone"))][0].udid // empty'
+          want="${{ matrix.version }}"
+          runtime() {
+            xcrun simctl list runtimes available -j | jq -c --arg v "$want" '
+              [.runtimes[] | select(.platform == "iOS")
+                | select($v == "latest" or .version == $v or (.version | startswith($v + ".")))]
+              | sort_by(.version | split(".") | map(tonumber)) | last // empty'
           }
-          udid=$(iphone)
-          if [ -z "$udid" ]; then
-            xcodebuild -downloadPlatform iOS
-            udid=$(iphone)
+          found=$(runtime)
+          if [ -z "$found" ]; then
+            if [ "$want" = latest ]; then
+              xcodebuild -downloadPlatform iOS
+            else
+              xcodebuild -downloadPlatform iOS -buildVersion "$want"
+            fi
+            found=$(runtime)
           fi
-          if [ -z "$udid" ]; then
-            runtime=$(xcrun simctl list runtimes available -j | jq -c '[.runtimes[] | select(.platform == "iOS")] | last')
-            udid=$(xcrun simctl create "CI iPhone" \
-              "$(echo "$runtime" | jq -r '[.supportedDeviceTypes[] | select(.productFamily == "iPhone")] | last | .identifier')" \
-              "$(echo "$runtime" | jq -r .identifier)")
+          if [ -z "$found" ]; then
+            echo "::error::No iOS $want simulator runtime available. Installed:"
+            xcrun simctl list runtimes
+            exit 1
           fi
+          echo "Testing on $(echo "$found" | jq -r .name)"
+          udid=$(xcrun simctl create "CI iPhone" \
+            "$(echo "$found" | jq -r '[.supportedDeviceTypes[] | select(.productFamily == "iPhone")] | last | .identifier')" \
+            "$(echo "$found" | jq -r .identifier)")
           echo "udid=$udid" >> "$GITHUB_OUTPUT"
       # The scheme reports TEST SUCCEEDED with "Executed 0 tests" because the suite is
       # swift-testing and the XCTest counter stays at zero. The swift-testing run is the real one
       # and fails the job on its own, so the count below is checked rather than trusted.
-      - name: Test
+      - name: Test on simulator
+        if: matrix.platform == 'ios'
         run: |
           set -o pipefail
           xcodebuild test \
