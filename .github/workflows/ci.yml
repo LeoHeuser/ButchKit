@@ -1,0 +1,44 @@
+name: CI
+
+on:
+  push:
+    branches: [main]
+  pull_request:
+  workflow_dispatch:
+
+concurrency:
+  group: ci-${{ github.ref }}
+  cancel-in-progress: true
+
+jobs:
+  macos:
+    name: macOS
+    runs-on: macos-latest
+    steps:
+      - uses: actions/checkout@v4
+      # Package.swift is swift-tools-version 6.2, and the sources use `@Entry` and an isolated
+      # deinit. SwiftPM names an older toolchain itself; this is here to read it off the log.
+      - name: Toolchain
+        run: swift --version
+      - name: Build
+        run: swift build
+      - name: Test
+        run: swift test
+
+  ios:
+    name: iOS
+    runs-on: macos-latest
+    steps:
+      - uses: actions/checkout@v4
+      # The scheme reports TEST SUCCEEDED with "Executed 0 tests" because the suite is
+      # swift-testing and the XCTest counter stays at zero. The swift-testing run is the real one
+      # and fails the job on its own, so the count below is checked rather than trusted.
+      - name: Test
+        run: |
+          set -o pipefail
+          xcodebuild test \
+            -scheme ButchKit \
+            -destination "platform=iOS Simulator,name=iPhone 17,OS=latest" \
+            | tee xcodebuild.log
+          grep -qE "Test run with [1-9][0-9]* tests .* passed" xcodebuild.log \
+            || { echo "::error::No swift-testing run reported; the suite did not execute."; exit 1; }
