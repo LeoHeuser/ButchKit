@@ -1,11 +1,16 @@
 name: Release
 
-# Started by Scripts/git-hooks/post-merge when a version branch is merged into
-# main, or by hand with "Run workflow". Tags and publishes only once build and
-# tests passed on macOS and iOS. Every job checks out the commit main pointed at
-# when the run started, so a later push cannot slip an untested state into the tag.
+# Started when a pull request from a version branch such as 2.0.24 is merged
+# into main, or by hand with "Run workflow". Tags and publishes only once build
+# and tests passed on macOS and iOS. Every job works on one commit, the merge
+# commit of the pull request or main at the start of a manual run, so a later
+# push cannot slip an untested state into the tag. A merged pull request from
+# any other branch releases nothing.
 
 on:
+  pull_request:
+    types: [closed]
+    branches: [main]
   workflow_dispatch:
     inputs:
       version:
@@ -18,26 +23,52 @@ permissions:
 jobs:
   check:
     name: Check version
+    if: >-
+      github.event_name == 'workflow_dispatch'
+      || (github.event.pull_request.merged
+          && github.event.pull_request.head.repo.full_name == github.repository)
     runs-on: macos-latest
+    outputs:
+      version: ${{ steps.version.outputs.version }}
+      sha: ${{ steps.version.outputs.sha }}
     steps:
       - uses: actions/checkout@v4
-      - run: Scripts/check-version.sh "${{ inputs.version }}"
+        with:
+          ref: ${{ github.event.pull_request.merge_commit_sha || github.sha }}
+      # A pull request branch that is not named like a version is no release, so the run ends
+      # here without failing. A version typed into "Run workflow" is always checked.
+      - id: version
+        env:
+          VERSION: ${{ inputs.version || github.head_ref }}
+          SHA: ${{ github.event.pull_request.merge_commit_sha || github.sha }}
+        run: |
+          if [[ $GITHUB_EVENT_NAME == pull_request && ! $VERSION =~ ^[0-9]+\.[0-9]+\.[0-9]+$ ]]; then
+            echo "Branch '$VERSION' is not a version, nothing to release."
+            exit 0
+          fi
+          Scripts/check-version.sh "$VERSION"
+          echo "version=$VERSION" >> "$GITHUB_OUTPUT"
+          echo "sha=$SHA" >> "$GITHUB_OUTPUT"
 
   test:
     name: Test
     needs: check
+    if: needs.check.outputs.version != ''
     uses: ./.github/workflows/ci.yml
+    with:
+      ref: ${{ needs.check.outputs.sha }}
 
   release:
     name: Tag and publish
-    needs: test
+    needs: [check, test]
     runs-on: macos-latest
     permissions:
       contents: write
     steps:
       - uses: actions/checkout@v4
         with:
+          ref: ${{ needs.check.outputs.sha }}
           fetch-depth: 0
-      - run: Scripts/release.sh "${{ inputs.version }}"
+      - run: Scripts/release.sh "${{ needs.check.outputs.version }}"
         env:
           GH_TOKEN: ${{ github.token }}

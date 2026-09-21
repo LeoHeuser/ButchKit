@@ -46,13 +46,24 @@ previews load their products from. The package's own scheme stays free of it, so
 that includes a local ButchKit checkout sees no StoreKit settings of ButchKit's. Close that app
 workspace first: Xcode opens a package in one window at a time.
 
+### Changing main
+
+`main` only changes through a pull request that is rebased onto it once the **CI passed** check
+is green. Direct pushes, force pushes and deleting `main` are refused.
+
+1. Commit on a branch and push it.
+2. Open a pull request into `main`: "Compare & pull request" on GitHub, or
+   `gh pr create --fill`.
+3. Click "Enable auto-merge", or run `gh pr merge --auto --rebase`. GitHub merges once CI is
+   green and deletes the branch.
+
 ### Releasing
 
-A release is a branch named after its version, such as `2.1.0` or `2.0.24`, merged into `main`
-in Xcode. The version must be higher than every release so far. The merge pushes `main` and starts the **Release** workflow, which builds and tests on
-macOS and iOS and only then tags `v2.1.0` and publishes the GitHub release. A failing test leaves
-no tag. A branch with any other name stays merged locally but is neither pushed nor released.
+A release is such a pull request from a branch named after its version, such as `2.1.0` or
+`2.0.24`. The version must be higher than every release so far. Merging it starts the
+**Release** workflow, which builds and tests the merge commit on macOS and iOS and only then tags
+`v2.1.0` and publishes the GitHub release, with the commit subjects as notes. A failing test
+leaves no tag. A pull request from any other branch is merged but not released.
 
-This runs from [`Scripts/git-hooks/post-merge`](Scripts/git-hooks/post-merge) and needs, once per
-clone, `git config core.hooksPath Scripts/git-hooks` and a logged-in `gh`. By hand: "Run workflow"
-on the Release workflow in GitHub, or `gh workflow run release.yml -f version=2.1.0`.
+By hand: "Run workflow" on the Release workflow in GitHub, or
+`gh workflow run release.yml -f version=2.1.0`.
