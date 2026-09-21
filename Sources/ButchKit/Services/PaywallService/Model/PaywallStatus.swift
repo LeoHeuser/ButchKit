@@ -48,8 +48,7 @@ public struct PaywallStatus {
     /// name.
     init(
         entitlement: PaywallEntitlement,
-        isInitialized: Bool,
-        hasCachedEntitlement: Bool,
+        isEntitlementKnown: Bool,
         heldPlan: HeldPlan?,
         lifetimeProductID: String?,
         lifetimeIsFamilyShared: Bool,
@@ -85,7 +84,7 @@ public struct PaywallStatus {
         }
         self.productID = productID
         self.entitlement = entitlement
-        self.isLoading = entitlement == .none && !isInitialized && !hasCachedEntitlement
+        self.isLoading = entitlement == .none && !isEntitlementKnown
         self.planName = productID.flatMap { planNames[$0] }
         self.showPaywall = showPaywall
         self.manageSubscription = manageSubscription

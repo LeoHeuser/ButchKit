@@ -102,16 +102,18 @@ public final class PaywallService {
     /// ``hasAccess`` once StoreKit has answered, `false` until then.
     public var hasVerifiedAccess: Bool { isInitialized && hasAccess }
 
+    /// Whether anything is known about what the user holds: StoreKit has answered, or the last
+    /// launch left an answer behind. `false` only in the first moment after an install, where a
+    /// paywall must show neither a lock nor a plan. The one rule behind ``isLocked`` and
+    /// ``PaywallStatus/isLoading``, so the two can never drift apart.
+    var isEntitlementKnown: Bool { isInitialized || hasCachedEntitlement }
+
     /// Whether to draw the locked state: lock badges, banners, read-only content. `true` once it is
     /// known that the user does not pay, from StoreKit or from the answer the last launch left
     /// behind. `false` for a paying user, and while nothing is known at all, the first moment after
     /// an install, so a subscriber who just reinstalled never sees a lock flash by. For looks only:
     /// gate actions on ``hasAccess`` or ``require(source:_:)``.
-    ///
-    /// The other side of ``PaywallStatus/isLoading``, which draws the spinner for that same first
-    /// moment. Both rest on `isInitialized || hasCachedEntitlement`: change what counts as known
-    /// and they have to move together.
-    public var isLocked: Bool { !hasAccess && (isInitialized || hasCachedEntitlement) }
+    public var isLocked: Bool { !hasAccess && isEntitlementKnown }
 
     /// `true` once the first `Transaction.currentEntitlements` check has completed after launch.
     /// Hold a launch gate on this if the first screen depends on the subscription.

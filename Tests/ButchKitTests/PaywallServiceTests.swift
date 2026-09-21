@@ -1076,13 +1076,11 @@ struct PaywallStatusTests {
         renewing: Bool = true,
         planNames: [String: String] = [:],
         familyShared: Bool = false,
-        isInitialized: Bool = true,
-        hasCachedEntitlement: Bool = false
+        isEntitlementKnown: Bool = true
     ) -> PaywallStatus {
         PaywallStatus(
             entitlement: entitlement,
-            isInitialized: isInitialized,
-            hasCachedEntitlement: hasCachedEntitlement,
+            isEntitlementKnown: isEntitlementKnown,
             heldPlan: HeldPlan(state: .subscribed, productID: "yearly", expirationDate: date, willAutoRenew: renewing, isFamilyShared: familyShared),
             lifetimeProductID: "lifetime",
             lifetimeIsFamilyShared: familyShared,
@@ -1129,10 +1127,12 @@ struct PaywallStatusTests {
     /// returning free user does have a cached answer, and must not be left on a spinner.
     @Test("Is loading only while nothing is cached and StoreKit has not answered")
     func loading() {
-        #expect(status(.none, isInitialized: false).isLoading)
+        #expect(status(.none, isEntitlementKnown: false).isLoading)
         #expect(!status(.none).isLoading)
-        #expect(!status(.subscription, isInitialized: false).isLoading)
-        #expect(!status(.none, isInitialized: false, hasCachedEntitlement: true).isLoading)
+        #expect(!status(.subscription, isEntitlementKnown: false).isLoading)
+        // What makes it known, StoreKit or the last launch, is decided by
+        // ``PaywallService/isEntitlementKnown`` and pinned by the `isLocked` test.
+        #expect(!status(.none, isEntitlementKnown: true).isLoading)
     }
 
     @Test("Offers management to a lifetime owner only while a subscription still renews")

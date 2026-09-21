@@ -62,8 +62,7 @@ public struct PaywallStatusReader<Content: View>: View {
         // `entitlement` rather than the plan decides the row, so it matches what the app unlocks.
         let status = PaywallStatus(
             entitlement: paywall.entitlement,
-            isInitialized: paywall.isInitialized,
-            hasCachedEntitlement: paywall.hasCachedEntitlement,
+            isEntitlementKnown: paywall.isEntitlementKnown,
             heldPlan: paywall.heldPlan,
             lifetimeProductID: paywall.lifetimeProductID,
             lifetimeIsFamilyShared: paywall.lifetimeIsFamilyShared,
