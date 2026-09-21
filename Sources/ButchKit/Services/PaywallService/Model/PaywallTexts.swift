@@ -124,6 +124,11 @@ public struct PaywallTexts: Sendable {
         /// What the lifetime side says when none of its products load: no connection, or a store
         /// outage. Without it that side stays empty, and only the log says why.
         public let productsUnavailable: ProductsUnavailable?
+        /// The word between the two policy links on the lifetime side: "and". StoreKit says it
+        /// itself over the plans, in every language; ButchKit ships no words, so the lifetime side
+        /// can only say it when the app hands it in. With it the two read as one sentence, like
+        /// the plans above them; without it they stand side by side.
+        public let policyConnector: LocalizedStringResource?
 
         public init(
             dismiss: LocalizedStringResource,
@@ -138,7 +143,8 @@ public struct PaywallTexts: Sendable {
             restoreFailedMessage: String,
             restoreOffline: RestoreOffline? = nil,
             purchasedLabel: String? = nil,
-            productsUnavailable: ProductsUnavailable? = nil
+            productsUnavailable: ProductsUnavailable? = nil,
+            policyConnector: LocalizedStringResource? = nil
         ) {
             self.dismiss = dismiss
             self.privacyPolicyTitle = privacyPolicyTitle
@@ -153,6 +159,7 @@ public struct PaywallTexts: Sendable {
             self.restoreOffline = restoreOffline
             self.purchasedLabel = purchasedLabel
             self.productsUnavailable = productsUnavailable
+            self.policyConnector = policyConnector
         }
 
         /// Title, message and retry button of the state shown when no lifetime product loads,

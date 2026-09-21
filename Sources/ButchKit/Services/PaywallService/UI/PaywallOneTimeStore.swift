@@ -32,6 +32,8 @@ struct PaywallOneTimeStore: View {
     var body: some View {
         ScrollView {
             VStack(spacing: 16) {
+                // Over the products, where StoreKit puts the same line over the plans.
+                policyLine
                 if nothingLoaded, let texts = paywall.texts.sheet.productsUnavailable {
                     unavailable(texts)
                 }
@@ -55,7 +57,6 @@ struct PaywallOneTimeStore: View {
                         ))
                         .id(reloadToken)
                 }
-                policyLinks
             }
             .padding()
         }
@@ -88,25 +89,81 @@ struct PaywallOneTimeStore: View {
         var id: String { url }
     }
 
-    /// StoreKit draws the policy buttons with its subscription controls and nowhere else, so under
-    /// the lifetime products they are ours: the same two pages, by the same rule of both or neither.
+    /// StoreKit draws the policy line with its subscription controls and nowhere else, so over the
+    /// lifetime products it is ours: the same two pages, by the same rule of both or neither, in
+    /// the same place and the same look as the one the plans get.
+    ///
+    /// One `Text` rather than two buttons in a row, because the line has to wrap: at the larger
+    /// text sizes two buttons side by side run out of width with nowhere to go. The links carry
+    /// the tint the app gives the paywall, which is where the native line takes its colour from
+    /// too, and stay two separate links for VoiceOver.
     @ViewBuilder
-    private var policyLinks: some View {
+    private var policyLine: some View {
         if let policies = paywall.configuration.policies {
-            HStack(spacing: 24) {
-                Button(paywall.texts.sheet.privacyPolicyTitle) {
-                    policy = Policy(url: policies.privacy, title: paywall.texts.sheet.privacyPolicyTitle)
-                }
-                Button(paywall.texts.sheet.termsOfServiceTitle) {
-                    policy = Policy(url: policies.terms, title: paywall.texts.sheet.termsOfServiceTitle)
+            let texts = paywall.texts.sheet
+            Group {
+                if let connector = texts.policyConnector {
+                    Text(policySentence(policies, connector: connector))
+                        .environment(\.openURL, OpenURLAction { url in
+                            open(url, in: policies)
+                        })
+                } else {
+                    // Without the connecting word there is no sentence to build, so the two stand
+                    // side by side. See ``PaywallTexts/Sheet/policyConnector``.
+                    HStack(spacing: 24) {
+                        Button(texts.termsOfServiceTitle) {
+                            policy = Policy(url: policies.terms, title: texts.termsOfServiceTitle)
+                        }
+                        Button(texts.privacyPolicyTitle) {
+                            policy = Policy(url: policies.privacy, title: texts.privacyPolicyTitle)
+                        }
+                    }
+                    .buttonStyle(.plain)
+                    .foregroundStyle(.tint)
                 }
             }
             .font(.footnote)
-            .buttonStyle(.plain)
-            .foregroundStyle(.secondary)
-            .padding(.top, 8)
+            .multilineTextAlignment(.center)
+            .frame(maxWidth: .infinity)
         }
     }
+
+    /// Terms first, then the privacy policy, as StoreKit words it over the plans. The two titles
+    /// are links on a scheme of ours, which never leaves the sheet: ``open(_:in:)`` catches it.
+    private func policySentence(_ policies: (privacy: String, terms: String), connector: LocalizedStringResource) -> AttributedString {
+        var sentence = link(String(localized: paywall.texts.sheet.termsOfServiceTitle), to: Self.termsURL)
+        var word = AttributedString(" \(String(localized: connector)) ")
+        word.foregroundColor = .secondary
+        sentence += word
+        sentence += link(String(localized: paywall.texts.sheet.privacyPolicyTitle), to: Self.privacyURL)
+        return sentence
+    }
+
+    private func link(_ title: String, to url: URL) -> AttributedString {
+        var text = AttributedString(title)
+        text.link = url
+        return text
+    }
+
+    /// Turns a tapped link back into the page it stands for, so it opens in the sheet below rather
+    /// than in the browser.
+    private func open(_ url: URL, in policies: (privacy: String, terms: String)) -> OpenURLAction.Result {
+        let texts = paywall.texts.sheet
+        switch url {
+        case Self.termsURL:
+            policy = Policy(url: policies.terms, title: texts.termsOfServiceTitle)
+        case Self.privacyURL:
+            policy = Policy(url: policies.privacy, title: texts.privacyPolicyTitle)
+        default:
+            return .systemAction
+        }
+        return .handled
+    }
+
+    // Stand-ins for the two pages, never opened as URLs. A scheme of ours so nothing else can
+    // claim them, and force-unwrapped because both are literals that cannot fail to parse.
+    private static let termsURL = URL(string: "butchkit-paywall:policy/terms")!
+    private static let privacyURL = URL(string: "butchkit-paywall:policy/privacy")!
 }
 
 /// One lifetime product as a card across the full width, in the look of Apple's plan cards on the
