@@ -48,9 +48,10 @@ workspace first: Xcode opens a package in one window at a time.
 ### Releasing
 
 A release is a branch named after its version, such as `2.1.0` or `2.0.24`, merged into `main`
-in Xcode. The merge tags `v2.1.0`, pushes `main` and the tag, and publishes the GitHub release,
-with a notification for the outcome. A branch with any other name stays merged but gets no tag.
+in Xcode. The merge pushes `main` and starts the **Release** workflow, which builds and tests on
+macOS and iOS and only then tags `v2.1.0` and publishes the GitHub release. A failing test leaves
+no tag. A branch with any other name stays merged locally but is neither pushed nor released.
 
 This runs from [`Scripts/git-hooks/post-merge`](Scripts/git-hooks/post-merge) and needs, once per
-clone, `git config core.hooksPath Scripts/git-hooks` and a logged-in `gh`. By hand:
-`Scripts/release.sh 2.1.0` on `main`.
+clone, `git config core.hooksPath Scripts/git-hooks` and a logged-in `gh`. By hand: "Run workflow"
+on the Release workflow in GitHub, or `gh workflow run release.yml -f version=2.1.0`.

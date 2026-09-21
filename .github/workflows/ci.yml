@@ -5,9 +5,13 @@ on:
     branches: [main]
   pull_request:
   workflow_dispatch:
+  # The Release workflow runs the suite through this before it tags.
+  workflow_call:
 
 concurrency:
-  group: ci-${{ github.ref }}
+  # Called from Release, github.workflow is "Release", so that run and the push run on main
+  # do not cancel each other.
+  group: ci-${{ github.workflow }}-${{ github.ref }}
   cancel-in-progress: true
 
 jobs:
