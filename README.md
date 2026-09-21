@@ -48,7 +48,7 @@ workspace first: Xcode opens a package in one window at a time.
 ### Releasing
 
 A release is a branch named after its version, such as `2.1.0` or `2.0.24`, merged into `main`
-in Xcode. The merge pushes `main` and starts the **Release** workflow, which builds and tests on
+in Xcode. The version must be higher than every release so far. The merge pushes `main` and starts the **Release** workflow, which builds and tests on
 macOS and iOS and only then tags `v2.1.0` and publishes the GitHub release. A failing test leaves
 no tag. A branch with any other name stays merged locally but is neither pushed nor released.
 
