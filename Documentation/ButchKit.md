@@ -13,6 +13,7 @@ Prose that applies across the library. These are binding for how we build, not d
 - [Logging Strategy](LoggingStrategy.md) — where, what, and at which level we log.
 - [Paywall](Paywall.md) — how an app sells its subscription: setup, gating, presenting, analytics.
 - [External packages](ExternalPackages.md) — how an app lists its external packages and lets the user turn the optional ones off: setup, gating, reacting to the switch, TelemetryDeck.
+- [Release 2.0](Release-2.0.md) — what the paywall release contains and what has to be checked on a device and in the sandbox before it is tagged.
 
 ## Localization
 
