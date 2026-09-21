@@ -10,6 +10,8 @@ DerivedData/
 
 # Claude Code
 .claude
+# Plan and task list of a working session. The result belongs in Documentation/.
+tasks/
 
 # Xcode
 *.xcodeproj/*
