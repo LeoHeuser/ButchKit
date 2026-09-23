@@ -261,10 +261,12 @@ public final class PaywallService {
         }
     }
 
-#if DEBUG
     /// A service with a fixed answer, for previews: StoreKit has nothing to say in a preview, so
     /// without this every preview shows a user who does not pay. It never talks to StoreKit and
     /// never writes the cache, so a preview of a subscriber leaves the next launch untouched.
+    ///
+    /// Available in every build, because an app's `#Preview` compiles in release too. Use it in
+    /// previews only: it grants whatever entitlement it is given.
     ///
     /// - Parameters:
     ///   - configuration: The subscription group, which the settings row still reads.
@@ -283,7 +285,6 @@ public final class PaywallService {
     public convenience init(configuration: PaywallConfiguration, texts: PaywallTexts, previewSubscribed: Bool) {
         self.init(configuration: configuration, texts: texts, previewEntitlement: previewSubscribed ? .subscription : .none)
     }
-#endif
 
     // SE-0371 isolated deinit: runs on the MainActor so it can reach the isolated task.
     isolated deinit {
