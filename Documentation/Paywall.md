@@ -413,7 +413,8 @@ In a preview, a row of the app's own gets its status from
 `PaywallStatus(previewEntitlement:planName:detail:canManageSubscription:isFamilyShared:isLoading:)`,
 every state without a StoreKit file. Like the service's own preview initializers,
 `PaywallService(configuration:texts:previewEntitlement:)` and `(…previewSubscribed:)`, it exists in
-debug builds only.
+every build: a `#Preview` compiles in release too, so a preview needs no `#if DEBUG` around it.
+Use them in previews only, since they grant whatever entitlement they are given.
 
 ### Restore in the settings
 

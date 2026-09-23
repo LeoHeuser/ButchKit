@@ -90,9 +90,9 @@ public struct PaywallStatus {
         self.manageSubscription = manageSubscription
     }
 
-#if DEBUG
     /// A status with fixed answers, for the preview of a row the app draws itself on
-    /// ``PaywallStatusReader``. The two actions do nothing.
+    /// ``PaywallStatusReader``. The two actions do nothing. Available in every build, because an
+    /// app's `#Preview` compiles in release too; use it in previews only.
     public init(
         previewEntitlement: PaywallEntitlement,
         planName: String? = nil,
@@ -111,5 +111,4 @@ public struct PaywallStatus {
         self.manageSubscription = {}
         self.productID = nil
     }
-#endif
 }
