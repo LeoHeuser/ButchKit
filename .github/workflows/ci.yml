@@ -116,13 +116,24 @@ jobs:
           grep -qE "Test run with [1-9][0-9]* tests .* passed" xcodebuild.log \
             || { echo "::error::No swift-testing run reported; the suite did not execute."; exit 1; }
 
+  # A log line that carries an error's prose lands in the diagnostics file users share. The rule is
+  # in Documentation/LoggingStrategy.md; the script is the one place it is checked.
+  log-privacy:
+    name: Log privacy
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          ref: ${{ inputs.ref || github.sha }}
+      - run: Scripts/check-log-privacy.sh
+
   # The one check the main ruleset requires. The test jobs are named after the matrix, which moves
   # with Package.swift and the runner images, so requiring them by name would block every pull
-  # request once a name changes.
+  # request once a name changes. The log privacy check joins in here for the same reason.
   passed:
     name: CI passed
-    needs: test
+    needs: [test, log-privacy]
     if: always()
     runs-on: ubuntu-latest
     steps:
-      - run: '[[ "${{ needs.test.result }}" == success ]]'
+      - run: '[[ "${{ needs.test.result }}" == success && "${{ needs.log-privacy.result }}" == success ]]'
