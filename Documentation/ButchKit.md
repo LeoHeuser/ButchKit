@@ -12,7 +12,7 @@ Prose that applies across the library. These are binding for how ButchKit is bui
 
 - [Logging Strategy](LoggingStrategy.md) — where, what, and at which level an app and ButchKit log.
 - [Paywall](Paywall.md) — how an app sells its subscription: setup, gating, presenting, analytics.
-- [External packages](ExternalPackages.md) — how an app lists its external packages and lets the user turn the optional ones off: setup, gating, reacting to the switch, with an analytics SDK as the worked example.
+- [External packages](ExternalPackages.md) — how an app lists its external packages with their licenses and lets the user turn the optional ones off: setup, gating, reacting to the switch, with an analytics SDK as the worked example.
 
 ## Localization
 
@@ -23,6 +23,10 @@ closure that builds a `Text`. The key is therefore written in the app's code, wh
 it and extracts it into the app's catalog like any other string. The app owns the wording, the
 keys and the translations, nothing is added to a catalog by hand, and a ButchKit surface speaks
 every language the app does.
+
+The one exception is a license text in `ExternalPackage.License`. It is a legal text, not an
+interface word, so ButchKit ships the standard ones in their original English, and nobody
+translates them.
 
 Which table a key lives in is the app's choice. The convention ButchKit's own types assume:
 
@@ -107,10 +111,14 @@ internal type shared across components: split into separate targets, it has to b
 
 `Sources/ButchKit/General Utility/ExternalPackagesView/` — setup in [ExternalPackages.md](ExternalPackages.md).
 
-- `ExternalPackagesView` — the app's external packages, one section each, with a switch under every package the user may turn off. Opened from wherever the app likes, with the app's `ExternalPackage.all` and `externalPackagesTexts`.
-- `ExternalPackage` — one package: name, license, purpose, source, whether it is optional, and what the app does when its switch flips.
-- `ExternalPackage.ID` — the name a package is switched under, and `isEnabled`, the gate the app asks before it runs the package. On until the user turns it off.
-- `ExternalPackagesTexts` — every word the list shows, handed in by the app.
+- `ExternalPackagesView` — the app's external packages, one section each, with a switch under every package the user may turn off. Each row opens the package's page with its license text. Opened from wherever the app likes, with the app's `ExternalPackage.all` and `externalPackagesTexts`.
+- `ExternalPackagesLink` — the settings row that opens it: pushed on iPhone and iPad, its own window on the Mac.
+- `ExternalPackagesWindow` — that window, declared once in the app's body (macOS only).
+- `ExternalPackageToggle` — one package's switch, for a second place such as a privacy screen.
+- `ExternalPackage` — one package: name, license, purpose, source, a note under its switch, and what the app does when the switch flips. `issues(in:)` checks the app's list in its tests.
+- `ExternalPackage.License` — MIT, Apache 2.0, BSD 2- and 3-Clause with their standard texts, or a license of the package's own.
+- `ExternalPackage.ID` — the name a package is switched under, its `Availability` (`required`, `optOut`, `optIn`), the app group the decision is stored in, and `isEnabled`, the gate the app asks before it runs the package.
+- `ExternalPackagesTexts` — every word the list and the package pages show, handed in by the app.
 
 ### General utility
 
