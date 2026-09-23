@@ -27,6 +27,9 @@ import SwiftUI
 /// The same three shapes as there. A label is a `LocalizedStringKey`, a hint is a `String` the app
 /// has already resolved from its own table, and a line with a value in it is a `Text` or a
 /// closure building one, so the key and its placeholder stand in the app's code together.
+///
+/// Words added after the first release come as optional groups, as in ``PaywallTexts``, so an app
+/// that has not written them yet keeps building. ``Detail`` is the first.
 public struct ExternalPackagesTexts {
     /// Navigation title of the list.
     public let title: LocalizedStringKey
@@ -40,6 +43,9 @@ public struct ExternalPackagesTexts {
     public let toggle: (String) -> Text
     /// The VoiceOver hint of that switch.
     public let toggleHint: String
+    /// The package's own page, with its license. Without it, a package's row opens its source
+    /// directly, as in ButchKit 2.0, and no license text is shown.
+    public let detail: Detail?
 
     public init(
         title: LocalizedStringKey,
@@ -47,7 +53,8 @@ public struct ExternalPackagesTexts {
         purpose: Text,
         sourceHint: String,
         toggle: @escaping (String) -> Text,
-        toggleHint: String
+        toggleHint: String,
+        detail: Detail? = nil
     ) {
         self.title = title
         self.emptyTitle = emptyTitle
@@ -55,5 +62,27 @@ public struct ExternalPackagesTexts {
         self.sourceHint = sourceHint
         self.toggle = toggle
         self.toggleHint = toggleHint
+        self.detail = detail
+    }
+
+    /// The words of a package's own page, where its license text is.
+    ///
+    /// ```swift
+    /// detail: .init(
+    ///     source: "button.packages.source",
+    ///     openHint: String(localized: "accessibility.link.settings.licenses.open", table: "Accessibility")
+    /// )
+    /// ```
+    public struct Detail: Sendable {
+        /// The link to the package's source, below the license. Its VoiceOver hint is
+        /// ``ExternalPackagesTexts/sourceHint``.
+        public let source: LocalizedStringResource
+        /// The VoiceOver hint of a package's row, which opens this page.
+        public let openHint: String
+
+        public init(source: LocalizedStringResource, openHint: String) {
+            self.source = source
+            self.openHint = openHint
+        }
     }
 }

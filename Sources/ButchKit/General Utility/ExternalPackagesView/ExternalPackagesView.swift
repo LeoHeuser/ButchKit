@@ -16,8 +16,12 @@ import SwiftUI
 /// ```
 ///
 /// Meant to be opened from wherever it helps: the settings, a privacy screen, an onboarding page.
-/// The switches read the same everywhere, because the decision is stored under the package's
-/// ``ExternalPackage/ID`` rather than held by the view.
+/// ``ExternalPackagesLink`` is the settings row that opens it. The switches read the same
+/// everywhere, because the decision is stored under the package's ``ExternalPackage/ID`` rather
+/// than held by the view. A single switch outside the list is an ``ExternalPackageToggle``.
+///
+/// Inside a navigation stack, because each package's row opens the package's own page with its
+/// license, once the app hands in ``ExternalPackagesTexts/Detail`` words.
 ///
 /// One section per package, so an optional package's switch sits with the package it belongs to
 /// instead of reading as a list item of its own. The package row stays one link as a whole: a
@@ -41,6 +45,12 @@ public struct ExternalPackagesView: View {
     private let texts: ExternalPackagesTexts
 
     public init(packages: [ExternalPackage], texts: ExternalPackagesTexts) {
+        // Caught in the first preview rather than on a device. The app's tests can ask the same
+        // through `ExternalPackage.issues(in:)`.
+        assert(
+            ExternalPackage.issues(in: packages).isEmpty,
+            ExternalPackage.issues(in: packages).joined(separator: "\n")
+        )
         self.packages = packages
         self.texts = texts
     }
@@ -53,6 +63,11 @@ public struct ExternalPackagesView: View {
                 if package.isOptional {
                     ExternalPackageToggle(package: package, texts: texts)
                 }
+            } footer: {
+                // What the switch does not say itself, such as when it takes full effect.
+                if package.isOptional, let note = package.note {
+                    Text(note)
+                }
             }
         }
         // Laid over the list rather than replacing it: the list is what tracks the navigation bar.
@@ -62,45 +77,6 @@ public struct ExternalPackagesView: View {
             }
         }
         .navigationTitle(texts.title)
-    }
-}
-
-/// The switch under an optional package.
-private struct ExternalPackageToggle: View {
-    let package: ExternalPackage
-    let texts: ExternalPackagesTexts
-
-    /// Stored under the package's id, which is what ``ExternalPackage/ID/isEnabled`` reads.
-    @AppStorage private var isEnabled: Bool
-
-    init(package: ExternalPackage, texts: ExternalPackagesTexts) {
-        self.package = package
-        self.texts = texts
-        // The key, default and store the gate reads, so the switch always shows what it answers.
-        _isEnabled = AppStorage(
-            wrappedValue: ExternalPackage.ID.enabledByDefault,
-            package.id.defaultsKey,
-            store: ExternalPackage.ID.store
-        )
-    }
-
-    var body: some View {
-        // The reaction runs in the setter rather than in `onChange`. `onChange` would also fire in
-        // every other open copy of this list, since they all watch the same stored value, and run
-        // the app's reaction once per window instead of once per flip.
-        Toggle(isOn: Binding(
-            get: { isEnabled },
-            set: { enabled in
-                // `onEnabledChange` promises a real change, so a setter handed the value it
-                // already holds does nothing at all.
-                guard enabled != isEnabled else { return }
-                isEnabled = enabled
-                package.onEnabledChange?(enabled)
-            }
-        )) {
-            texts.toggle(package.name)
-        }
-        .accessibilityHint(texts.toggleHint)
     }
 }
 
