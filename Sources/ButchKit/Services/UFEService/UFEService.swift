@@ -95,10 +95,9 @@ public final class UFEService {
     
     private func log(_ error: any UFError) {
         let code = error.error?.logCode ?? "none"
-        let detail = error.error.map { String(describing: $0) } ?? "none"
         logger.log(
             level: error.level.logType,
-            "User-facing error shown: level=\(error.level.name, privacy: .public) \(code, privacy: .public) detail=\(detail, privacy: .private)"
+            "User-facing error shown: level=\(error.level.name, privacy: .public) \(code, privacy: .public)"
         )
     }
 }

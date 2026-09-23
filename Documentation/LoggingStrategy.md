@@ -61,7 +61,7 @@ Some ButchKit components log under the app's subsystem as well, in categories of
 |---|---|---|
 | `LogMirror` | `LogMirror` | A harvest or write that failed |
 | `Purchase` | `PaywallService` | Purchases, restores, entitlement and status reads |
-| `UFEService` | `UFEService` | Every error shown to the user, as `User-facing error shown: level=… domain=… code=…`. `info` is written at `notice`, so it survives in the field. The description of the underlying error is private. Change the name with `UFEService(category:)` |
+| `UFEService` | `UFEService` | Every error shown to the user, as `User-facing error shown: level=… domain=… code=…`. `info` is written at `notice`, so it survives in the field. The underlying error appears only as its domain and code. Change the name with `UFEService(category:)` |
 
 The `Purchase` category in the setup example above is the same name on purpose: the app's own entitlement decisions then sit next to the paywall's under one filter. Choose a different name if you want them apart. Do not declare `LogMirror` yourself.
 
@@ -161,10 +161,11 @@ Logger.notes.notice("Note loaded: words=\(wordCount, privacy: .public) locale=\(
 - Mark a value `public` only when it can never contain personal data: a locale identifier, a duration, a counter, an error code.
 - Anyone with the device and its passcode can read these logs, and anyone who receives a diagnostics file reads all of it. Nothing personal belongs in any value, whatever its annotation.
 - To correlate equal values without revealing them, use `privacy: .private(mask: .hash)`.
-- Log an error as its domain and code, which `error.logCode` renders as two fields, and add `error.localizedDescription` only when the domain cannot embed a file name or user text. Foundation's file errors quote the file's name; CloudKit's and StoreKit's do not.
+- Log an error as its domain and code, which `error.logCode` renders as two fields. Add `error.localizedDescription`, marked `public`, only when the domain can never embed a file name or user text, such as CloudKit or StoreKit. Foundation's file errors and SwiftData quote file names and paths into their prose, so they get `logCode` alone. Marking that prose `.private` instead is not a way around this: nothing personal belongs in any value, and a redacted value tells the reader of an export nothing.
 
 ```swift
-Logger.store.error("Save failed: \(error.logCode, privacy: .public) error=\(error.localizedDescription, privacy: .public)")
+Logger.store.error("Save failed: \(error.logCode, privacy: .public)")
+Logger.purchase.error("Purchase failed: \(error.logCode, privacy: .public) error=\(error.localizedDescription, privacy: .public)")
 Logger.fileImport.error("File unreadable: ext=\(url.pathExtension, privacy: .public) \(error.logCode, privacy: .public)")
 ```
 
@@ -360,7 +361,7 @@ A compact checklist for anyone — human or AI — writing log statements in a B
 - Never mark a value `public` if it can contain user data. Never log user data at all: an export shows unannotated values in the clear.
 - Use `notice` or higher for anything that must be visible in the field.
 - A routine success is `notice` only as the once-per-launch or once-per-run anchor of a report; every other success is a count in that summary line.
-- Log an error as `\(error.logCode, privacy: .public)`; add `localizedDescription` only when its domain cannot carry a file name or user text.
+- Log an error as `\(error.logCode, privacy: .public)`; add `localizedDescription` only when its domain can never carry a file name or user text. Never for Foundation file errors or SwiftData, not even as `.private`.
 - No emoji, no drama, US English.
 - Put formatting inside the interpolation, never in a prebuilt string.
 - Add a category only when an area actually logs. `LogMirror`, `Purchase` and `UFEService` are also written by ButchKit.
