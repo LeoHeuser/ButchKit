@@ -247,7 +247,7 @@ public actor LogMirror {
         } catch is CancellationError {
             logger.notice("Log mirror harvest cut short: trigger=\(reason, privacy: .public)")
         } catch {
-            logger.error("Log mirror harvest failed: trigger=\(reason, privacy: .public) \(error.logCode, privacy: .public) error=\(error.localizedDescription, privacy: .public)")
+            logger.error("Log mirror harvest failed: trigger=\(reason, privacy: .public) \(error.logCode, privacy: .public)")
         }
     }
 
