@@ -472,16 +472,35 @@ struct PaywallServiceTests {
         clearCache()
     }
 
-    @Test("Applies overlapping refreshes in the order they were asked for")
+    /// Refreshes read one behind the other, so the slow read holds the fast one back until the
+    /// gate opens. The time limit turns a future deadlock into a failure instead of a hung run.
+    @Test("Applies overlapping refreshes in the order they were asked for", .timeLimit(.minutes(1)))
     func refreshesInOrder() async {
         let service = makeService()
-        async let slow: Void = service.refresh { _ in
-            try? await Task.sleep(for: .milliseconds(50))
-            return PaywallEntitlementSnapshot(strongest: .subscription)
+        // Finishing a stream is the signal: `for await` over it returns once the other side calls `finish()`.
+        let (slowStarted, markSlowStarted) = AsyncStream<Void>.makeStream()
+        let (fastAsked, markFastAsked) = AsyncStream<Void>.makeStream()
+        let (gate, openGate) = AsyncStream<Void>.makeStream()
+        let slow = Task {
+            await service.refresh { _ in
+                markSlowStarted.finish()
+                for await _ in gate {}
+                return PaywallEntitlementSnapshot(strongest: .subscription)
+            }
         }
-        // Started second and answered at once, yet it must land last.
-        async let fast: Void = service.refresh { _ in PaywallEntitlementSnapshot(strongest: .lifetime) }
-        _ = await (slow, fast)
+        // The reader runs inside `refresh`, so from here on the slow refresh was asked for first.
+        for await _ in slowStarted {}
+        let fast = Task {
+            // On the main actor nothing runs between this signal and the synchronous start of
+            // `refresh`, so the fast refresh is asked for while the slow one is still reading.
+            markFastAsked.finish()
+            await service.refresh { _ in PaywallEntitlementSnapshot(strongest: .lifetime) }
+        }
+        for await _ in fastAsked {}
+        openGate.finish()
+        await slow.value
+        await fast.value
+        // Whichever read answers last, the refresh asked for last decides.
         #expect(service.entitlement == .lifetime)
         clearCache()
     }
