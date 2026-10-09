@@ -556,7 +556,7 @@ The paywall is the largest part of ButchKit and the one with the most dependenci
 - **Logging.** `LoggerService` under the category `Purchase`, and `Error.logCode` for every error, see [LoggingStrategy.md](LoggingStrategy.md).
 - **`GatedWebView`** for the Privacy Policy and Terms of Service, with its defaults: JavaScript off, the cache bypassed, and only links on the same domain followed.
 - **`Device`**, read from `\.device`, to decide whether Manage opens Apple's sheet or the App Store, see [The settings row](#the-settings-row).
-- **The close button** of `sheetDismissButton(_:)`, on the policy sheet of the one-time side. Through its internal type, as the paywall's words are `LocalizedStringResource`s.
+- **The close button** of `sheetDismissButton(_:)`, on the policy sheet of the one-time side. Through its internal type, as the word comes from ButchKit's own catalog.
 
 From the system it uses StoreKit, SwiftUI and OSLog, and WidgetKit to reload the app's widget timelines when an app group is set. Its resources are its catalog, `Paywall.xcstrings`, and the placeholder photos of its own previews. Their `.storekit` file sits next to them but is excluded from the bundle.
 

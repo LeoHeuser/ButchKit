@@ -7,9 +7,9 @@ import Testing
 @Suite("Localization")
 struct LocalizationTests {
     /// Each component's catalog, named after its table, in the component's folder.
-    private static let components: [(catalog: String, strings: String)] = [
-        ("Services/PaywallService/Paywall.xcstrings", "Services/PaywallService"),
-        ("General Utility/ExternalPackagesView/ExternalPackages.xcstrings", "General Utility/ExternalPackagesView"),
+    private static let components = [
+        "Services/PaywallService/Paywall.xcstrings",
+        "General Utility/ExternalPackagesView/ExternalPackages.xcstrings",
     ]
 
     private static let sources = URL(filePath: #filePath)
@@ -38,9 +38,10 @@ struct LocalizationTests {
         URL(filePath: catalog).deletingPathExtension().lastPathComponent
     }
 
-    /// Every Swift file in a component's folder.
-    private static func code(_ folder: String) throws -> String {
-        let files = FileManager.default.enumerator(at: sources.appending(path: folder), includingPropertiesForKeys: nil)
+    /// Every Swift file in the catalog's component folder.
+    private static func code(_ catalog: String) throws -> String {
+        let folder = sources.appending(path: catalog).deletingLastPathComponent()
+        let files = FileManager.default.enumerator(at: folder, includingPropertiesForKeys: nil)
         return try (files?.allObjects as? [URL] ?? [])
             .filter { $0.pathExtension == "swift" }
             .map { try String(contentsOf: $0, encoding: .utf8) }
@@ -49,10 +50,10 @@ struct LocalizationTests {
 
     /// The keys a component looks up in its table, with each interpolation as the `%@` Xcode
     /// extracts it as.
-    private static func usedKeys(_ component: (catalog: String, strings: String)) throws -> Set<String> {
-        let table = table(component.catalog)
+    private static func usedKeys(_ catalog: String) throws -> Set<String> {
+        let table = table(catalog)
         let lookup = try Regex(#""((?:[^"\\]|\\.)*)",\s*(?:tableName|table): ""# + table + #"""#)
-        return Set(try code(component.strings).matches(of: lookup).map { match in
+        return Set(try code(catalog).matches(of: lookup).map { match in
             let key = String(match.output[1].substring ?? "")
             return key.replacing(/\\\((?:[^()]|\([^()]*\))*\)/, with: "%@")
         })
@@ -70,9 +71,9 @@ struct LocalizationTests {
     /// A key looked up but not in the catalog shows as the raw key. A key in the catalog but never
     /// looked up is dead weight for translators.
     @Test("Every word looked up is in its catalog, and nothing else", arguments: components)
-    func keysMatch(component: (catalog: String, strings: String)) throws {
-        let declared = try Self.usedKeys(component)
-        let catalogued = Set(try Self.catalog(component.catalog).strings.keys)
+    func keysMatch(catalog path: String) throws {
+        let declared = try Self.usedKeys(path)
+        let catalogued = Set(try Self.catalog(path).strings.keys)
         #expect(!declared.isEmpty)
         #expect(declared.subtracting(catalogued).isEmpty, "Not in the catalog: \(declared.subtracting(catalogued).sorted())")
         #expect(catalogued.subtracting(declared).isEmpty, "Not in code: \(catalogued.subtracting(declared).sorted())")
@@ -80,9 +81,9 @@ struct LocalizationTests {
 
     /// Without ButchKit's bundle, a lookup searches the app's catalogs and shows the raw key.
     @Test("Every lookup names ButchKit's bundle", arguments: components)
-    func bundle(component: (catalog: String, strings: String)) throws {
-        let table = Self.table(component.catalog)
-        let code = try Self.code(component.strings)
+    func bundle(catalog path: String) throws {
+        let table = Self.table(path)
+        let code = try Self.code(path)
         let lookups = try code.matches(of: Regex(#"(?:tableName|table): ""# + table + #"""#)).count
         let withBundle = try code.matches(of: Regex(#"(?:tableName|table): ""# + table + #"", bundle: \.module"#)).count
         #expect(lookups > 0)
@@ -91,8 +92,8 @@ struct LocalizationTests {
 
     /// One language with one word missing shows that word in English.
     @Test("Every word is translated into every language its catalog has", arguments: components)
-    func complete(component: (catalog: String, strings: String)) throws {
-        let catalog = try Self.catalog(component.catalog)
+    func complete(catalog path: String) throws {
+        let catalog = try Self.catalog(path)
         let languages = catalog.strings.values.reduce(into: Set<String>()) { $0.formUnion(Self.languages($1)) }
         for (key, entry) in catalog.strings {
             let missing = languages.subtracting(Self.languages(entry))
@@ -105,8 +106,8 @@ struct LocalizationTests {
 
     /// A translation that drops or adds a placeholder shows a raw `%@`, or crashes the format.
     @Test("Every translation keeps the source's placeholders", arguments: components)
-    func placeholders(component: (catalog: String, strings: String)) throws {
-        let catalog = try Self.catalog(component.catalog)
+    func placeholders(catalog path: String) throws {
+        let catalog = try Self.catalog(path)
         for (key, entry) in catalog.strings {
             let localizations = entry.localizations ?? [:]
             let source = try #require(localizations[catalog.sourceLanguage], "\(key) has no source value")
@@ -120,8 +121,8 @@ struct LocalizationTests {
     /// The paywall in Japanese next to a licenses list in English would read as a broken app.
     @Test("Every catalog speaks the same languages")
     func sameLanguages() throws {
-        let languages = try Self.components.map { component in
-            try Self.catalog(component.catalog).strings.values.reduce(into: Set<String>()) { $0.formUnion(Self.languages($1)) }
+        let languages = try Self.components.map { path in
+            try Self.catalog(path).strings.values.reduce(into: Set<String>()) { $0.formUnion(Self.languages($1)) }
         }
         #expect(Set(languages).count == 1)
     }
