@@ -32,7 +32,7 @@ public struct ExternalPackagesWindow: Scene {
     }
 
     public var body: some Scene {
-        Window(Text(ExternalPackagesStrings.title), id: ExternalPackagesView.windowID) {
+        Window(Text("label.externalPackages.title", tableName: "ExternalPackages", bundle: .module), id: ExternalPackagesView.windowID) {
             NavigationStack {
                 ExternalPackagesView(packages: packages)
             }

@@ -27,18 +27,25 @@ hands in no words for them, and nothing of ButchKit's appears in the app's catal
 
 How it is built:
 
-- The English is the source and stands in the code, as the `defaultValue` of a
-  `LocalizedStringResource` in the component's `…Strings` enum. Xcode extracts it into the
-  component's catalog when it builds the package, like any other string. A new word is a new
-  property there, never a key added to a catalog by hand.
-- Each word is a `LocalizedStringResource` on `bundle: .atURL(Bundle.module.bundleURL)` and the
-  component's own `table:`, so SwiftUI resolves it when it draws.
+- A word is looked up where it is shown, by key, in the component's table and ButchKit's
+  bundle: `Text("button.paywall.dismiss", tableName: "Paywall", bundle: .module)`. Where an API
+  takes a resource rather than a `Text`, the same as
+  `LocalizedStringResource("…", table: "Paywall", bundle: .module)`. There is no file of strings
+  in between.
+- `bundle: .module` cannot be left out. SwiftUI has no default bundle to set, so a lookup
+  without it searches the app's catalogs and shows the raw key. For the same reason a
+  `.navigationTitle("key")` or `Button("key")` without `Text` cannot show a ButchKit word.
+- Xcode extracts each key into the component's catalog when it builds the package. The English,
+  every translation and the comment for translators are written in the catalog, never in code.
+- English is the development language, so a language the catalogs lack falls back to it.
 - A package's bundle follows the language the app has chosen. ButchKit therefore never shows a
   language the app does not support. The reverse is the one rule to keep: an app language
   missing from these catalogs shows ButchKit's words in English. The catalogs carry every
   language a consuming app ships; an app that adds a language needs a ButchKit release with it.
 - Translations are reviewed in Xcode's catalog editor. A draft is marked "Needs Review" there
   until someone has checked it.
+- `LocalizationTests` fails on a key the code looks up but the catalog lacks, a lookup without
+  `bundle: .module`, a missing translation and a broken placeholder.
 
 What stays with the app is what only the app can word: the paywall's marketing pages
 (`PaywallFeature`), the name of what it sells (`PaywallConfiguration.planName`), each package's

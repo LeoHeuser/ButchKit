@@ -56,9 +56,9 @@ public struct ExternalPackageToggle: View {
                     package.onEnabledChange?(enabled)
                 }
             )) {
-                Text(ExternalPackagesStrings.toggle(package.name))
+                Text("label.externalPackages.toggle \(package.name)", tableName: "ExternalPackages", bundle: .module)
             }
-            .accessibilityHint(Text(ExternalPackagesStrings.toggleHint))
+            .accessibilityHint(Text("accessibility.hint.externalPackages.toggle \(ExternalPackagesView.appName)", tableName: "ExternalPackages", bundle: .module))
         }
     }
 }

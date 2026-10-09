@@ -3,7 +3,6 @@
   "strings" : {
     "accessibility.hint.externalPackages.link" : {
       "comment" : "VoiceOver hint of the settings row that opens the licenses list.",
-      "extractionState" : "extracted_with_value",
       "localizations" : {
         "ar" : {
           "stringUnit" : {
@@ -25,7 +24,7 @@
         },
         "en" : {
           "stringUnit" : {
-            "state" : "new",
+            "state" : "translated",
             "value" : "Shows the licenses of third-party software."
           }
         },
@@ -147,7 +146,6 @@
     },
     "accessibility.hint.externalPackages.open" : {
       "comment" : "VoiceOver hint of a package's row in the licenses list, which opens its license page.",
-      "extractionState" : "extracted_with_value",
       "localizations" : {
         "ar" : {
           "stringUnit" : {
@@ -169,7 +167,7 @@
         },
         "en" : {
           "stringUnit" : {
-            "state" : "new",
+            "state" : "translated",
             "value" : "Shows the license of this package."
           }
         },
@@ -291,7 +289,6 @@
     },
     "accessibility.hint.externalPackages.source" : {
       "comment" : "VoiceOver hint of that link, which leaves the app.",
-      "extractionState" : "extracted_with_value",
       "localizations" : {
         "ar" : {
           "stringUnit" : {
@@ -313,7 +310,7 @@
         },
         "en" : {
           "stringUnit" : {
-            "state" : "new",
+            "state" : "translated",
             "value" : "Opens the source code in the browser."
           }
         },
@@ -433,9 +430,8 @@
         }
       }
     },
-    "accessibility.hint.externalPackages.toggle" : {
+    "accessibility.hint.externalPackages.toggle %@" : {
       "comment" : "VoiceOver hint of that switch. The placeholder is the app's name.",
-      "extractionState" : "extracted_with_value",
       "localizations" : {
         "ar" : {
           "stringUnit" : {
@@ -457,7 +453,7 @@
         },
         "en" : {
           "stringUnit" : {
-            "state" : "new",
+            "state" : "translated",
             "value" : "Decides whether %@ uses this package."
           }
         },
@@ -579,7 +575,6 @@
     },
     "button.externalPackages.source" : {
       "comment" : "Link on a package's license page that opens its source code in the browser.",
-      "extractionState" : "extracted_with_value",
       "localizations" : {
         "ar" : {
           "stringUnit" : {
@@ -601,7 +596,7 @@
         },
         "en" : {
           "stringUnit" : {
-            "state" : "new",
+            "state" : "translated",
             "value" : "Source Code"
           }
         },
@@ -723,7 +718,6 @@
     },
     "label.externalPackages.empty" : {
       "comment" : "Empty-state title of the licenses list.",
-      "extractionState" : "extracted_with_value",
       "localizations" : {
         "ar" : {
           "stringUnit" : {
@@ -745,7 +739,7 @@
         },
         "en" : {
           "stringUnit" : {
-            "state" : "new",
+            "state" : "translated",
             "value" : "No Licenses"
           }
         },
@@ -865,9 +859,8 @@
         }
       }
     },
-    "label.externalPackages.purpose" : {
+    "label.externalPackages.purpose %@" : {
       "comment" : "Caption above what a package is used for, in the licenses list. The placeholder is the app's name.",
-      "extractionState" : "extracted_with_value",
       "localizations" : {
         "ar" : {
           "stringUnit" : {
@@ -889,7 +882,7 @@
         },
         "en" : {
           "stringUnit" : {
-            "state" : "new",
+            "state" : "translated",
             "value" : "Purpose in %@"
           }
         },
@@ -1011,7 +1004,6 @@
     },
     "label.externalPackages.title" : {
       "comment" : "Title of the list of third-party software the app uses, with their licenses. Also the settings row that opens it.",
-      "extractionState" : "extracted_with_value",
       "localizations" : {
         "ar" : {
           "stringUnit" : {
@@ -1033,7 +1025,7 @@
         },
         "en" : {
           "stringUnit" : {
-            "state" : "new",
+            "state" : "translated",
             "value" : "Licenses"
           }
         },
@@ -1153,9 +1145,8 @@
         }
       }
     },
-    "label.externalPackages.toggle" : {
+    "label.externalPackages.toggle %@" : {
       "comment" : "Switch that turns an optional package on or off. The placeholder is the package's name, for example an analytics service.",
-      "extractionState" : "extracted_with_value",
       "localizations" : {
         "ar" : {
           "stringUnit" : {
@@ -1177,7 +1168,7 @@
         },
         "en" : {
           "stringUnit" : {
-            "state" : "new",
+            "state" : "translated",
             "value" : "Use %@"
           }
         },

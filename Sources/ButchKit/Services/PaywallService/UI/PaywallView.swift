@@ -99,8 +99,8 @@ struct PaywallView: View {
             // button. Under the paywall's own header, `controlsUnderHeader()` replaces this with
             // the picker placed in the scroll view.
                 .subscriptionStoreControlStyle(.automatic)
-                .policyDestination(for: .privacyPolicy, url: paywall.configuration.privacyPolicyURL, title: PaywallStrings.privacyPolicy)
-                .policyDestination(for: .termsOfService, url: paywall.configuration.termsOfServiceURL, title: PaywallStrings.termsOfService)
+                .policyDestination(for: .privacyPolicy, url: paywall.configuration.privacyPolicyURL, title: PaywallOneTimeStore.privacyPolicyTitle)
+                .policyDestination(for: .termsOfService, url: paywall.configuration.termsOfServiceURL, title: PaywallOneTimeStore.termsTitle)
             // Both handlers cover every StoreKit view inside, the lifetime products included.
                 .onInAppPurchaseStart { product in
                     paywall.report(.purchaseStarted(source: request.source, productID: product.id))
@@ -108,13 +108,13 @@ struct PaywallView: View {
                 .onInAppPurchaseCompletion { product, result in
                     await handlePurchaseCompletion(of: product, result)
                 }
-                .alert(Text(PaywallStrings.purchaseFailedTitle), isPresented: $showsPurchaseFailedAlert) {
+                .alert(Text("error.paywall.purchaseFailed.title", tableName: "Paywall", bundle: .module), isPresented: $showsPurchaseFailedAlert) {
                 } message: {
-                    Text(PaywallStrings.purchaseFailedMessage)
+                    Text("error.paywall.purchaseFailed.message", tableName: "Paywall", bundle: .module)
                 }
-                .alert(Text(restoreAlert.title), isPresented: $showsRestoreAlert) {
+                .alert(restoreAlert.title, isPresented: $showsRestoreAlert) {
                 } message: {
-                    if let message = restoreAlert.message { Text(message) }
+                    restoreAlert.message
                 }
                 .onChange(of: showsRestoreAlert) { _, isPresented in
                     // Closing the alert is the step a restore held back: the sheet closes now if
@@ -217,8 +217,8 @@ struct PaywallView: View {
             if offersBoth {
                 // Each segment reads its own title to VoiceOver, so the picker needs no label.
                 Picker(selection: $offer) {
-                    Text(PaywallStrings.subscriptionTab).tag(Offer.subscription)
-                    Text(PaywallStrings.oneTimeTab).tag(Offer.oneTime)
+                    Text("label.paywall.tab.subscription", tableName: "Paywall", bundle: .module).tag(Offer.subscription)
+                    Text("label.paywall.tab.oneTime", tableName: "Paywall", bundle: .module).tag(Offer.oneTime)
                 } label: {
                     EmptyView()
                 }
@@ -248,13 +248,20 @@ struct PaywallView: View {
     
     /// The restore alert's words, decided once. Split over two switches, a title could end up
     /// over another outcome's message.
-    private var restoreAlert: (title: LocalizedStringResource, message: LocalizedStringResource?) {
+    private var restoreAlert: (title: Text, message: Text?) {
         switch restoreOutcome {
-        case .restored: return (PaywallStrings.restoreSucceededTitle, nil)
-        case .nothingToRestore: return (PaywallStrings.nothingToRestoreTitle, nil)
-        case .failed: return (PaywallStrings.restoreFailedTitle, PaywallStrings.restoreFailedMessage)
-        case .offline: return (PaywallStrings.restoreOfflineTitle, PaywallStrings.restoreOfflineMessage)
-        case .cancelled, nil: return ("", nil)
+        case .restored:
+            return (Text("alert.paywall.restore.succeeded.title", tableName: "Paywall", bundle: .module), nil)
+        case .nothingToRestore:
+            return (Text("alert.paywall.restore.nothingFound.title", tableName: "Paywall", bundle: .module), nil)
+        case .failed:
+            return (Text("error.paywall.restoreFailed.title", tableName: "Paywall", bundle: .module),
+                    Text("error.paywall.restoreFailed.message", tableName: "Paywall", bundle: .module))
+        case .offline:
+            return (Text("error.paywall.restoreOffline.title", tableName: "Paywall", bundle: .module),
+                    Text("error.paywall.restoreOffline.message", tableName: "Paywall", bundle: .module))
+        case .cancelled, nil:
+            return (Text(verbatim: ""), nil)
         }
     }
 
@@ -262,7 +269,7 @@ struct PaywallView: View {
     /// Styled by where it sits: floating over the photos, or in the toolbar.
     private var restoreButton: some View {
         Button(action: restore) {
-            Text(PaywallStrings.restorePurchases)
+            Text("button.paywall.restorePurchases", tableName: "Paywall", bundle: .module)
                 // Kept in place under the spinner, so the button keeps its size.
                 .opacity(isRestoring ? 0 : 1)
                 .overlay {
@@ -272,7 +279,7 @@ struct PaywallView: View {
                 }
         }
         .disabled(isRestoring)
-        .accessibilityLabel(Text(PaywallStrings.restorePurchases))
+        .accessibilityLabel(Text("button.paywall.restorePurchases", tableName: "Paywall", bundle: .module))
     }
 
     private func restore() {
@@ -289,8 +296,14 @@ struct PaywallView: View {
     /// Closes the paywall. Through the service rather than `@Environment(\.dismiss)`, so the
     /// request is cleared with the sheet and does not come back.
     private var dismissButton: some View {
-        Button(PaywallStrings.dismiss, systemImage: "xmark") {
+        Button {
             paywall.dismissPaywall()
+        } label: {
+            Label {
+                Text("button.paywall.dismiss", tableName: "Paywall", bundle: .module)
+            } icon: {
+                Image(systemName: "xmark")
+            }
         }
     }
 

@@ -52,10 +52,11 @@ No service locators, registries or DI containers. `EnvironmentKey`, `Environment
 
 ButchKit words its own components with String Catalogs. Follow "Localization" in `Documentation/ButchKit.md`.
 
-- Every word a component shows on its own is a `LocalizedStringResource` in the component's `…Strings` enum, as in `PaywallStrings`: the key, the English as `defaultValue`, the component's `table:`, `bundle: .atURL(Bundle.module.bundleURL)` and a `comment` for translators. Never make the app hand in such a word, and never add a `…Texts` struct for it.
+- Look a word up where it is shown: `Text("button.paywall.dismiss", tableName: "Paywall", bundle: .module)`, or `LocalizedStringResource("…", table: "Paywall", bundle: .module)` where an API needs a resource. Never leave out `bundle: .module`, or the app's catalogs are searched and the raw key shows. No files of strings, no `…Strings` enums, no `defaultValue` in code. Never make the app hand in such a word, and never add a `…Texts` struct for it.
+- English, translations and the comment for translators live in the catalog only.
 - One catalog per component, in its folder, named after its table, declared with `.process(...)` in `Package.swift` and listed in the component table.
-- Keys come from the code, and Xcode extracts them. Never invent a key in a catalog that the code does not declare.
-- A new word ships translated into every language the catalogs carry. `LocalizationTests` fails on a missing word, a missing language or a broken placeholder.
+- Keys come from the code, and Xcode extracts them. Never invent a key in a catalog that the code does not look up.
+- A new word ships translated into every language the catalogs carry. `LocalizationTests` fails on a missing word, a missing `bundle: .module`, a missing language or a broken placeholder.
 - The catalogs carry every language a consuming app ships. A language missing there shows English in that app.
 - Only what is app-specific comes from the app: marketing pages, the plan name, package descriptions, the app's own errors.
 

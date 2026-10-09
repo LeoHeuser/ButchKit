@@ -22,7 +22,7 @@ struct ExternalPackageRow: View {
         } label: {
             ExternalPackageRowContent(package: package)
         }
-        .accessibilityHint(Text(ExternalPackagesStrings.openHint))
+        .accessibilityHint(Text("accessibility.hint.externalPackages.open", tableName: "ExternalPackages", bundle: .module))
     }
 }
 
@@ -56,7 +56,7 @@ private struct ExternalPackageRowContent: View {
                 .foregroundStyle(.tint)
 
             VStack(alignment: .leading, spacing: purposeSpacing) {
-                Text(ExternalPackagesStrings.purpose)
+                Text("label.externalPackages.purpose \(ExternalPackagesView.appName)", tableName: "ExternalPackages", bundle: .module)
 
                 Text(verbatim: package.description)
             }
