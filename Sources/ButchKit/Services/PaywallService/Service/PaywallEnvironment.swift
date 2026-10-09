@@ -106,16 +106,23 @@ struct PaywallSheetModifier: ViewModifier {
         if paywall.configuration.subscriptionGroupID != nil, !paywall.configuration.lifetimeProductIDs.isEmpty {
             host
                 .alert(
-                    Text(PaywallStrings.overlapTitle),
+                    Text("alert.paywall.subscriptionOverlap.title", tableName: "Paywall", bundle: .module),
                     isPresented: Binding<Bool>(
                         get: { paywall.presents(hostID) && paywall.showsSubscriptionOverlap },
                         set: { if !$0 { paywall.showsSubscriptionOverlap = false } }
                     )
                 ) {
-                    Button(PaywallStrings.manageSubscription) { managesSubscription = true }
-                    Button(PaywallStrings.later, role: .cancel) {}
+                    Button {
+                        managesSubscription = true
+                    } label: {
+                        Text("button.paywall.manageSubscription", tableName: "Paywall", bundle: .module)
+                    }
+                    Button(role: .cancel) {
+                    } label: {
+                        Text("button.paywall.later", tableName: "Paywall", bundle: .module)
+                    }
                 } message: {
-                    Text(PaywallStrings.overlapMessage)
+                    Text("alert.paywall.subscriptionOverlap.message", tableName: "Paywall", bundle: .module)
                 }
                 .modifier(ManageSubscriptionModifier(isRequested: $managesSubscription, subscriptionGroupID: paywall.configuration.subscriptionGroupID))
         } else {

@@ -62,7 +62,7 @@ struct PaywallOneTimeStore: View {
         .sheet(item: $policy) { policy in
             NavigationStack {
                 GatedWebView(policy.url, title: policy.title)
-                    .modifier(DismissSheetButton(title: Text(PaywallStrings.dismiss)))
+                    .modifier(DismissSheetButton(title: Text("button.paywall.dismiss", tableName: "Paywall", bundle: .module)))
             }
         }
     }
@@ -70,15 +70,15 @@ struct PaywallOneTimeStore: View {
     /// Said once for the whole side rather than per card, with the way to try again.
     private var unavailable: some View {
         ContentUnavailableView {
-            Text(PaywallStrings.productsUnavailableTitle)
+            Text("error.paywall.productsUnavailable.title", tableName: "Paywall", bundle: .module)
         } description: {
-            Text(PaywallStrings.productsUnavailableMessage)
+            Text("error.paywall.productsUnavailable.message", tableName: "Paywall", bundle: .module)
         } actions: {
             Button {
                 missingProductIDs = []
                 reloadToken += 1
             } label: {
-                Text(PaywallStrings.retry)
+                Text("button.paywall.retry", tableName: "Paywall", bundle: .module)
             }
         }
     }
@@ -101,7 +101,11 @@ struct PaywallOneTimeStore: View {
     @ViewBuilder
     private var policyLine: some View {
         if let policies = paywall.configuration.policies {
-            Text(Self.policySentence(terms: PaywallStrings.termsOfService, privacy: PaywallStrings.privacyPolicy, connector: PaywallStrings.policyConnector))
+            Text(Self.policySentence(
+                terms: Self.termsTitle,
+                privacy: Self.privacyPolicyTitle,
+                connector: LocalizedStringResource("label.paywall.policyConnector", table: "Paywall", bundle: .module)
+            ))
                 .environment(\.openURL, OpenURLAction { url in
                     open(url, in: policies)
                 })
@@ -136,13 +140,23 @@ struct PaywallOneTimeStore: View {
     private func open(_ url: URL, in policies: (privacy: String, terms: String)) -> OpenURLAction.Result {
         switch url {
         case Self.termsURL:
-            policy = Policy(url: policies.terms, title: PaywallStrings.termsOfService)
+            policy = Policy(url: policies.terms, title: Self.termsTitle)
         case Self.privacyURL:
-            policy = Policy(url: policies.privacy, title: PaywallStrings.privacyPolicy)
+            policy = Policy(url: policies.privacy, title: Self.privacyPolicyTitle)
         default:
             return .systemAction
         }
         return .handled
+    }
+
+    // The two pages' names: the links over the products and over the plans, and the title of the
+    // page each opens. Resources rather than `Text`, because `GatedWebView` takes its title as one.
+    static var termsTitle: LocalizedStringResource {
+        LocalizedStringResource("label.paywall.termsOfService", table: "Paywall", bundle: .module)
+    }
+
+    static var privacyPolicyTitle: LocalizedStringResource {
+        LocalizedStringResource("label.paywall.privacyPolicy", table: "Paywall", bundle: .module)
     }
 
     // Stand-ins for the two pages, never opened as URLs. A scheme of ours so nothing else can
@@ -185,7 +199,7 @@ private struct PaywallProductStyle: ProductViewStyle {
                     Group {
                         if isOwned {
                             Image(systemName: "checkmark")
-                                .accessibilityLabel(Text(PaywallStrings.purchased))
+                                .accessibilityLabel(Text("accessibility.label.paywall.purchased", tableName: "Paywall", bundle: .module))
                         } else {
                             Text(verbatim: product.displayPrice)
                         }

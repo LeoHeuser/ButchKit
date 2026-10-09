@@ -41,6 +41,14 @@ public struct ExternalPackagesView: View {
     public static let windowSize = CGSize(width: 480, height: 320)
 #endif
 
+    /// The app's name as the Home Screen shows it, in the app's language, for the words that
+    /// name the app. Read from the bundle, so a renamed app does not leave the old name behind.
+    static var appName: String {
+        Bundle.main.object(forInfoDictionaryKey: "CFBundleDisplayName") as? String
+            ?? Bundle.main.object(forInfoDictionaryKey: "CFBundleName") as? String
+            ?? ""
+    }
+
     private let packages: [ExternalPackage]
 
     public init(packages: [ExternalPackage]) {
@@ -73,14 +81,14 @@ public struct ExternalPackagesView: View {
             if packages.isEmpty {
                 ContentUnavailableView {
                     Label {
-                        Text(ExternalPackagesStrings.emptyTitle)
+                        Text("label.externalPackages.empty", tableName: "ExternalPackages", bundle: .module)
                     } icon: {
                         Image(systemName: "shippingbox")
                     }
                 }
             }
         }
-        .navigationTitle(Text(ExternalPackagesStrings.title))
+        .navigationTitle(Text("label.externalPackages.title", tableName: "ExternalPackages", bundle: .module))
     }
 }
 

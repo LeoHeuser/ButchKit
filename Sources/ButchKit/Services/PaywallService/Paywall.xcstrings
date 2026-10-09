@@ -3,7 +3,6 @@
   "strings" : {
     "accessibility.hint.paywallStatus.manage" : {
       "comment" : "VoiceOver hint of that button.",
-      "extractionState" : "extracted_with_value",
       "localizations" : {
         "ar" : {
           "stringUnit" : {
@@ -25,7 +24,7 @@
         },
         "en" : {
           "stringUnit" : {
-            "state" : "new",
+            "state" : "translated",
             "value" : "Opens subscription management."
           }
         },
@@ -147,7 +146,6 @@
     },
     "accessibility.hint.paywallStatus.offer" : {
       "comment" : "VoiceOver hint of the settings button that opens the paywall.",
-      "extractionState" : "extracted_with_value",
       "localizations" : {
         "ar" : {
           "stringUnit" : {
@@ -169,7 +167,7 @@
         },
         "en" : {
           "stringUnit" : {
-            "state" : "new",
+            "state" : "translated",
             "value" : "Opens the purchase options."
           }
         },
@@ -291,7 +289,6 @@
     },
     "accessibility.label.paywall.purchased" : {
       "comment" : "VoiceOver label of the checkmark that replaces the Buy button of a one-time purchase the user already owns.",
-      "extractionState" : "extracted_with_value",
       "localizations" : {
         "ar" : {
           "stringUnit" : {
@@ -313,7 +310,7 @@
         },
         "en" : {
           "stringUnit" : {
-            "state" : "new",
+            "state" : "translated",
             "value" : "Purchased"
           }
         },
@@ -435,7 +432,6 @@
     },
     "accessibility.label.paywallStatus.manage" : {
       "comment" : "VoiceOver label of that button. Keeps the visible word, so Voice Control still finds it.",
-      "extractionState" : "extracted_with_value",
       "localizations" : {
         "ar" : {
           "stringUnit" : {
@@ -457,7 +453,7 @@
         },
         "en" : {
           "stringUnit" : {
-            "state" : "new",
+            "state" : "translated",
             "value" : "Manage Subscription"
           }
         },
@@ -579,7 +575,6 @@
     },
     "alert.paywall.restore.nothingFound.title" : {
       "comment" : "Title of the alert after restoring found no earlier purchase. One sentence, the alert has no message.",
-      "extractionState" : "extracted_with_value",
       "localizations" : {
         "ar" : {
           "stringUnit" : {
@@ -601,7 +596,7 @@
         },
         "en" : {
           "stringUnit" : {
-            "state" : "new",
+            "state" : "translated",
             "value" : "Nothing to Restore"
           }
         },
@@ -723,7 +718,6 @@
     },
     "alert.paywall.restore.succeeded.title" : {
       "comment" : "Title of the alert after restoring brought a purchase back. One sentence, the alert has no message.",
-      "extractionState" : "extracted_with_value",
       "localizations" : {
         "ar" : {
           "stringUnit" : {
@@ -745,7 +739,7 @@
         },
         "en" : {
           "stringUnit" : {
-            "state" : "new",
+            "state" : "translated",
             "value" : "Purchases Restored"
           }
         },
@@ -867,7 +861,6 @@
     },
     "alert.paywall.subscriptionOverlap.message" : {
       "comment" : "Message of that alert. The app cannot cancel the subscription itself, so it explains why the user should.",
-      "extractionState" : "extracted_with_value",
       "localizations" : {
         "ar" : {
           "stringUnit" : {
@@ -889,7 +882,7 @@
         },
         "en" : {
           "stringUnit" : {
-            "state" : "new",
+            "state" : "translated",
             "value" : "Your purchase unlocks everything for good. The subscription renews until you cancel it."
           }
         },
@@ -1011,7 +1004,6 @@
     },
     "alert.paywall.subscriptionOverlap.title" : {
       "comment" : "Title of the alert after a one-time purchase that unlocks everything, while the user's subscription still renews.",
-      "extractionState" : "extracted_with_value",
       "localizations" : {
         "ar" : {
           "stringUnit" : {
@@ -1033,7 +1025,7 @@
         },
         "en" : {
           "stringUnit" : {
-            "state" : "new",
+            "state" : "translated",
             "value" : "Your Subscription Is Still Active"
           }
         },
@@ -1155,7 +1147,6 @@
     },
     "button.paywall.dismiss" : {
       "comment" : "Button that closes the paywall. Shown as an X, read aloud by VoiceOver.",
-      "extractionState" : "extracted_with_value",
       "localizations" : {
         "ar" : {
           "stringUnit" : {
@@ -1177,7 +1168,7 @@
         },
         "en" : {
           "stringUnit" : {
-            "state" : "new",
+            "state" : "translated",
             "value" : "Close"
           }
         },
@@ -1299,7 +1290,6 @@
     },
     "button.paywall.later" : {
       "comment" : "Button in that alert which closes it and leaves the subscription alone.",
-      "extractionState" : "extracted_with_value",
       "localizations" : {
         "ar" : {
           "stringUnit" : {
@@ -1321,7 +1311,7 @@
         },
         "en" : {
           "stringUnit" : {
-            "state" : "new",
+            "state" : "translated",
             "value" : "Later"
           }
         },
@@ -1443,7 +1433,6 @@
     },
     "button.paywall.manageSubscription" : {
       "comment" : "Button in that alert which opens the system's subscription management.",
-      "extractionState" : "extracted_with_value",
       "localizations" : {
         "ar" : {
           "stringUnit" : {
@@ -1465,7 +1454,7 @@
         },
         "en" : {
           "stringUnit" : {
-            "state" : "new",
+            "state" : "translated",
             "value" : "Manage Subscription"
           }
         },
@@ -1587,7 +1576,6 @@
     },
     "button.paywall.restorePurchases" : {
       "comment" : "Paywall button that brings back earlier purchases, for example on a new device. Shown as text in a small button, so keep it short.",
-      "extractionState" : "extracted_with_value",
       "localizations" : {
         "ar" : {
           "stringUnit" : {
@@ -1609,7 +1597,7 @@
         },
         "en" : {
           "stringUnit" : {
-            "state" : "new",
+            "state" : "translated",
             "value" : "Restore"
           }
         },
@@ -1731,7 +1719,6 @@
     },
     "button.paywall.retry" : {
       "comment" : "Button that loads the one-time purchases again after they could not be loaded.",
-      "extractionState" : "extracted_with_value",
       "localizations" : {
         "ar" : {
           "stringUnit" : {
@@ -1753,7 +1740,7 @@
         },
         "en" : {
           "stringUnit" : {
-            "state" : "new",
+            "state" : "translated",
             "value" : "Try Again"
           }
         },
@@ -1875,7 +1862,6 @@
     },
     "button.paywallStatus.manage" : {
       "comment" : "Settings button that opens the system's subscription management. Next to the plan's name, so the verb alone.",
-      "extractionState" : "extracted_with_value",
       "localizations" : {
         "ar" : {
           "stringUnit" : {
@@ -1897,7 +1883,7 @@
         },
         "en" : {
           "stringUnit" : {
-            "state" : "new",
+            "state" : "translated",
             "value" : "Manage"
           }
         },
@@ -2019,7 +2005,6 @@
     },
     "button.paywallStatus.offer" : {
       "comment" : "Settings button that opens the paywall, while the user pays for nothing.",
-      "extractionState" : "extracted_with_value",
       "localizations" : {
         "ar" : {
           "stringUnit" : {
@@ -2041,7 +2026,7 @@
         },
         "en" : {
           "stringUnit" : {
-            "state" : "new",
+            "state" : "translated",
             "value" : "Upgrade"
           }
         },
@@ -2161,9 +2146,8 @@
         }
       }
     },
-    "button.paywallStatus.offer.named" : {
+    "button.paywallStatus.offer.named %@" : {
       "comment" : "Settings button that opens the paywall, while the user pays for nothing. The placeholder is the name of what the app sells, for example 'Pro'.",
-      "extractionState" : "extracted_with_value",
       "localizations" : {
         "ar" : {
           "stringUnit" : {
@@ -2185,7 +2169,7 @@
         },
         "en" : {
           "stringUnit" : {
-            "state" : "new",
+            "state" : "translated",
             "value" : "Upgrade to %@"
           }
         },
@@ -2307,7 +2291,6 @@
     },
     "error.paywall.productsUnavailable.message" : {
       "comment" : "Message under that title. The usual cause is a missing connection.",
-      "extractionState" : "extracted_with_value",
       "localizations" : {
         "ar" : {
           "stringUnit" : {
@@ -2329,7 +2312,7 @@
         },
         "en" : {
           "stringUnit" : {
-            "state" : "new",
+            "state" : "translated",
             "value" : "Check your connection and try again."
           }
         },
@@ -2451,7 +2434,6 @@
     },
     "error.paywall.productsUnavailable.title" : {
       "comment" : "Title shown in place of the one-time purchases when none of them could be loaded.",
-      "extractionState" : "extracted_with_value",
       "localizations" : {
         "ar" : {
           "stringUnit" : {
@@ -2473,7 +2455,7 @@
         },
         "en" : {
           "stringUnit" : {
-            "state" : "new",
+            "state" : "translated",
             "value" : "Purchases Unavailable"
           }
         },
@@ -2595,7 +2577,6 @@
     },
     "error.paywall.purchaseFailed.message" : {
       "comment" : "Message of the alert after a purchase failed. 'Restore' is the paywall's restore button and must match its translation.",
-      "extractionState" : "extracted_with_value",
       "localizations" : {
         "ar" : {
           "stringUnit" : {
@@ -2617,7 +2598,7 @@
         },
         "en" : {
           "stringUnit" : {
-            "state" : "new",
+            "state" : "translated",
             "value" : "Nothing was unlocked. Try again. If you were already charged, use Restore."
           }
         },
@@ -2739,7 +2720,6 @@
     },
     "error.paywall.purchaseFailed.title" : {
       "comment" : "Title of the alert after a purchase failed.",
-      "extractionState" : "extracted_with_value",
       "localizations" : {
         "ar" : {
           "stringUnit" : {
@@ -2761,7 +2741,7 @@
         },
         "en" : {
           "stringUnit" : {
-            "state" : "new",
+            "state" : "translated",
             "value" : "Purchase Failed"
           }
         },
@@ -2883,7 +2863,6 @@
     },
     "error.paywall.restoreFailed.message" : {
       "comment" : "Message of the alert after restoring failed for a reason other than a missing connection.",
-      "extractionState" : "extracted_with_value",
       "localizations" : {
         "ar" : {
           "stringUnit" : {
@@ -2905,7 +2884,7 @@
         },
         "en" : {
           "stringUnit" : {
-            "state" : "new",
+            "state" : "translated",
             "value" : "Your purchases could not be restored. Try again later."
           }
         },
@@ -3027,7 +3006,6 @@
     },
     "error.paywall.restoreFailed.title" : {
       "comment" : "Title of the alert after restoring failed, for example because a purchase did not pass verification.",
-      "extractionState" : "extracted_with_value",
       "localizations" : {
         "ar" : {
           "stringUnit" : {
@@ -3049,7 +3027,7 @@
         },
         "en" : {
           "stringUnit" : {
-            "state" : "new",
+            "state" : "translated",
             "value" : "Restore Failed"
           }
         },
@@ -3171,7 +3149,6 @@
     },
     "error.paywall.restoreOffline.message" : {
       "comment" : "Message of the alert after restoring failed because the App Store could not be reached.",
-      "extractionState" : "extracted_with_value",
       "localizations" : {
         "ar" : {
           "stringUnit" : {
@@ -3193,7 +3170,7 @@
         },
         "en" : {
           "stringUnit" : {
-            "state" : "new",
+            "state" : "translated",
             "value" : "The App Store could not be reached. Check your internet connection and try again."
           }
         },
@@ -3315,7 +3292,6 @@
     },
     "error.paywall.restoreOffline.title" : {
       "comment" : "Title of the alert after restoring failed because the App Store could not be reached.",
-      "extractionState" : "extracted_with_value",
       "localizations" : {
         "ar" : {
           "stringUnit" : {
@@ -3337,7 +3313,7 @@
         },
         "en" : {
           "stringUnit" : {
-            "state" : "new",
+            "state" : "translated",
             "value" : "No Connection"
           }
         },
@@ -3459,7 +3435,6 @@
     },
     "error.paywallStatus.billingIssue" : {
       "comment" : "Line under the plan's name in the settings while the App Store cannot charge a renewal.",
-      "extractionState" : "extracted_with_value",
       "localizations" : {
         "ar" : {
           "stringUnit" : {
@@ -3481,7 +3456,7 @@
         },
         "en" : {
           "stringUnit" : {
-            "state" : "new",
+            "state" : "translated",
             "value" : "Payment issue. Check your payment method."
           }
         },
@@ -3603,7 +3578,6 @@
     },
     "label.paywall.policyConnector" : {
       "comment" : "The word between the two policy links: 'Terms of Service and Privacy Policy'. Includes the spaces around it, so a language that writes none, such as Chinese, leaves them out.",
-      "extractionState" : "extracted_with_value",
       "localizations" : {
         "ar" : {
           "stringUnit" : {
@@ -3625,7 +3599,7 @@
         },
         "en" : {
           "stringUnit" : {
-            "state" : "new",
+            "state" : "translated",
             "value" : " and "
           }
         },
@@ -3747,7 +3721,6 @@
     },
     "label.paywall.privacyPolicy" : {
       "comment" : "Link to the privacy policy under the purchase options, and the title of the page it opens.",
-      "extractionState" : "extracted_with_value",
       "localizations" : {
         "ar" : {
           "stringUnit" : {
@@ -3769,7 +3742,7 @@
         },
         "en" : {
           "stringUnit" : {
-            "state" : "new",
+            "state" : "translated",
             "value" : "Privacy Policy"
           }
         },
@@ -3891,7 +3864,6 @@
     },
     "label.paywall.tab.oneTime" : {
       "comment" : "Segment of the paywall that shows the one-time purchases, next to the subscription plans.",
-      "extractionState" : "extracted_with_value",
       "localizations" : {
         "ar" : {
           "stringUnit" : {
@@ -3913,7 +3885,7 @@
         },
         "en" : {
           "stringUnit" : {
-            "state" : "new",
+            "state" : "translated",
             "value" : "One-Time Purchase"
           }
         },
@@ -4035,7 +4007,6 @@
     },
     "label.paywall.tab.subscription" : {
       "comment" : "Segment of the paywall that shows the subscription plans, next to the one-time purchases.",
-      "extractionState" : "extracted_with_value",
       "localizations" : {
         "ar" : {
           "stringUnit" : {
@@ -4057,7 +4028,7 @@
         },
         "en" : {
           "stringUnit" : {
-            "state" : "new",
+            "state" : "translated",
             "value" : "Subscription"
           }
         },
@@ -4179,7 +4150,6 @@
     },
     "label.paywall.termsOfService" : {
       "comment" : "Link to the terms under the purchase options, and the title of the page it opens. Matches the App Store's own wording next to subscriptions.",
-      "extractionState" : "extracted_with_value",
       "localizations" : {
         "ar" : {
           "stringUnit" : {
@@ -4201,7 +4171,7 @@
         },
         "en" : {
           "stringUnit" : {
-            "state" : "new",
+            "state" : "translated",
             "value" : "Terms of Service"
           }
         },
@@ -4321,9 +4291,8 @@
         }
       }
     },
-    "label.paywallStatus.ends" : {
+    "label.paywallStatus.ends %@" : {
       "comment" : "Line under the plan's name in the settings once auto-renew is off. The placeholder is the last day of access.",
-      "extractionState" : "extracted_with_value",
       "localizations" : {
         "ar" : {
           "stringUnit" : {
@@ -4345,7 +4314,7 @@
         },
         "en" : {
           "stringUnit" : {
-            "state" : "new",
+            "state" : "translated",
             "value" : "Ends %@"
           }
         },
@@ -4467,7 +4436,6 @@
     },
     "label.paywallStatus.lifetime" : {
       "comment" : "Settings row for a user who bought the app once, in place of the product's name until the App Store has provided it.",
-      "extractionState" : "extracted_with_value",
       "localizations" : {
         "ar" : {
           "stringUnit" : {
@@ -4489,7 +4457,7 @@
         },
         "en" : {
           "stringUnit" : {
-            "state" : "new",
+            "state" : "translated",
             "value" : "Lifetime Purchase"
           }
         },
@@ -4609,9 +4577,8 @@
         }
       }
     },
-    "label.paywallStatus.renews" : {
+    "label.paywallStatus.renews %@" : {
       "comment" : "Line under the plan's name in the settings while the subscription renews. The placeholder is the renewal date.",
-      "extractionState" : "extracted_with_value",
       "localizations" : {
         "ar" : {
           "stringUnit" : {
@@ -4633,7 +4600,7 @@
         },
         "en" : {
           "stringUnit" : {
-            "state" : "new",
+            "state" : "translated",
             "value" : "Renews %@"
           }
         },
@@ -4755,7 +4722,6 @@
     },
     "label.paywallStatus.subscription" : {
       "comment" : "Settings row for a subscriber, in place of the plan's name until the App Store has provided it.",
-      "extractionState" : "extracted_with_value",
       "localizations" : {
         "ar" : {
           "stringUnit" : {
@@ -4777,7 +4743,7 @@
         },
         "en" : {
           "stringUnit" : {
-            "state" : "new",
+            "state" : "translated",
             "value" : "Subscription"
           }
         },

@@ -129,14 +129,14 @@ public extension PaywallStatus {
     /// Voice Control finds it by what it shows.
     var offerTitle: Text {
         if let configuredPlanName {
-            Text(PaywallStrings.offer(planName: String(localized: configuredPlanName)))
+            Text("button.paywallStatus.offer.named \(String(localized: configuredPlanName))", tableName: "Paywall", bundle: .module)
         } else {
-            Text(PaywallStrings.offer)
+            Text("button.paywallStatus.offer", tableName: "Paywall", bundle: .module)
         }
     }
 
     /// The VoiceOver hint of ``offerTitle``.
-    var offerHint: Text { Text(PaywallStrings.offerHint) }
+    var offerHint: Text { Text("accessibility.hint.paywallStatus.offer", tableName: "Paywall", bundle: .module) }
 
     /// The plan's name: the App Store's own once loaded, until then the app's
     /// ``PaywallConfiguration/planName`` or ButchKit's "Subscription" or "Lifetime Purchase".
@@ -144,29 +144,30 @@ public extension PaywallStatus {
         // A product name from App Store Connect is already localized there.
         if let planName { return Text(verbatim: planName) }
         if let configuredPlanName { return Text(configuredPlanName) }
-        return Text(entitlement == .lifetime ? PaywallStrings.lifetimePlan : PaywallStrings.subscriptionPlan)
+        if entitlement == .lifetime { return Text("label.paywallStatus.lifetime", tableName: "Paywall", bundle: .module) }
+        return Text("label.paywallStatus.subscription", tableName: "Paywall", bundle: .module)
     }
 
     /// The line under the plan's name, `nil` when there is nothing to say.
     var detailText: Text? {
         detail.map { detail in
             switch detail {
-            case .renews(let date): Text(PaywallStrings.renews(on: date.formatted(Self.dateFormat)))
-            case .ends(let date): Text(PaywallStrings.ends(on: date.formatted(Self.dateFormat)))
-            case .billingIssue: Text(PaywallStrings.billingIssue)
+            case .renews(let date): Text("label.paywallStatus.renews \(date.formatted(Self.dateFormat))", tableName: "Paywall", bundle: .module)
+            case .ends(let date): Text("label.paywallStatus.ends \(date.formatted(Self.dateFormat))", tableName: "Paywall", bundle: .module)
+            case .billingIssue: Text("error.paywallStatus.billingIssue", tableName: "Paywall", bundle: .module)
             }
         }
     }
 
     /// The button into the system's subscription management. The verb alone, next to the plan.
-    var manageTitle: Text { Text(PaywallStrings.manage) }
+    var manageTitle: Text { Text("button.paywallStatus.manage", tableName: "Paywall", bundle: .module) }
 
     /// The accessibility label of ``manageTitle``, which says what is managed and keeps the
     /// visible word for Voice Control.
-    var manageLabel: Text { Text(PaywallStrings.manageLabel) }
+    var manageLabel: Text { Text("accessibility.label.paywallStatus.manage", tableName: "Paywall", bundle: .module) }
 
     /// The VoiceOver hint of ``manageTitle``.
-    var manageHint: Text { Text(PaywallStrings.manageHint) }
+    var manageHint: Text { Text("accessibility.hint.paywallStatus.manage", tableName: "Paywall", bundle: .module) }
 
     /// One format for both dated lines, so they cannot drift apart.
     private static var dateFormat: Date.FormatStyle { .dateTime.day().month().year() }

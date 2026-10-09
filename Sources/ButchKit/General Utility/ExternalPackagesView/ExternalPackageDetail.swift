@@ -26,7 +26,7 @@ struct ExternalPackageDetail: View {
                 Section {
                     Link(destination: url) {
                         HStack {
-                            Text(ExternalPackagesStrings.source)
+                            Text("button.externalPackages.source", tableName: "ExternalPackages", bundle: .module)
 
                             Spacer()
 
@@ -38,7 +38,7 @@ struct ExternalPackageDetail: View {
                                 .accessibilityHidden(true)
                         }
                     }
-                    .accessibilityHint(Text(ExternalPackagesStrings.sourceHint))
+                    .accessibilityHint(Text("accessibility.hint.externalPackages.source", tableName: "ExternalPackages", bundle: .module))
                 }
             }
         }

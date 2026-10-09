@@ -1,15 +1,15 @@
 import Foundation
 import Testing
 
-/// A word missing from a catalog is not an error anyone sees: the app shows ButchKit's English in
-/// the middle of another language. These tests read the catalogs and the code that declares the
-/// words, so a gap fails here rather than on a user's screen.
+/// A word missing from a catalog is not an error anyone sees: the app shows a raw key, or ButchKit's
+/// English in the middle of another language. These tests read the catalogs and the code that looks
+/// the words up, so a gap fails here rather than on a user's screen.
 @Suite("Localization")
 struct LocalizationTests {
-    /// Each component's catalog and the file that declares its words.
+    /// Each component's catalog, named after its table, in the component's folder.
     private static let components: [(catalog: String, strings: String)] = [
-        ("Services/PaywallService/Paywall.xcstrings", "Services/PaywallService/Model/PaywallStrings.swift"),
-        ("General Utility/ExternalPackagesView/ExternalPackages.xcstrings", "General Utility/ExternalPackagesView/ExternalPackagesStrings.swift"),
+        ("Services/PaywallService/Paywall.xcstrings", "Services/PaywallService"),
+        ("General Utility/ExternalPackagesView/ExternalPackages.xcstrings", "General Utility/ExternalPackagesView"),
     ]
 
     private static let sources = URL(filePath: #filePath)
@@ -33,10 +33,29 @@ struct LocalizationTests {
         try JSONDecoder().decode(Catalog.self, from: Data(contentsOf: sources.appending(path: path)))
     }
 
-    /// The keys a component declares, read from its `…Strings` file.
-    private static func declaredKeys(_ path: String) throws -> Set<String> {
-        let code = try String(contentsOf: sources.appending(path: path), encoding: .utf8)
-        return Set(code.matches(of: /LocalizedStringResource\("([^"]+)"/).map { String($0.output.1) })
+    /// The table a catalog compiles to.
+    private static func table(_ catalog: String) -> String {
+        URL(filePath: catalog).deletingPathExtension().lastPathComponent
+    }
+
+    /// Every Swift file in a component's folder.
+    private static func code(_ folder: String) throws -> String {
+        let files = FileManager.default.enumerator(at: sources.appending(path: folder), includingPropertiesForKeys: nil)
+        return try (files?.allObjects as? [URL] ?? [])
+            .filter { $0.pathExtension == "swift" }
+            .map { try String(contentsOf: $0, encoding: .utf8) }
+            .joined(separator: "\n")
+    }
+
+    /// The keys a component looks up in its table, with each interpolation as the `%@` Xcode
+    /// extracts it as.
+    private static func usedKeys(_ component: (catalog: String, strings: String)) throws -> Set<String> {
+        let table = table(component.catalog)
+        let lookup = try Regex(#""((?:[^"\\]|\\.)*)",\s*(?:tableName|table): ""# + table + #"""#)
+        return Set(try code(component.strings).matches(of: lookup).map { match in
+            let key = String(match.output[1].substring ?? "")
+            return key.replacing(/\\\((?:[^()]|\([^()]*\))*\)/, with: "%@")
+        })
     }
 
     /// The languages an entry is translated into.
@@ -48,15 +67,26 @@ struct LocalizationTests {
         value.matches(of: /%(\d+\$)?[@dlf]/).count
     }
 
-    /// A key declared in code but not in the catalog was never extracted, so every language falls
-    /// back to English. A key in the catalog but not in code is dead weight for translators.
-    @Test("Every declared word is in its catalog, and nothing else", arguments: components)
+    /// A key looked up but not in the catalog shows as the raw key. A key in the catalog but never
+    /// looked up is dead weight for translators.
+    @Test("Every word looked up is in its catalog, and nothing else", arguments: components)
     func keysMatch(component: (catalog: String, strings: String)) throws {
-        let declared = try Self.declaredKeys(component.strings)
+        let declared = try Self.usedKeys(component)
         let catalogued = Set(try Self.catalog(component.catalog).strings.keys)
         #expect(!declared.isEmpty)
         #expect(declared.subtracting(catalogued).isEmpty, "Not in the catalog: \(declared.subtracting(catalogued).sorted())")
         #expect(catalogued.subtracting(declared).isEmpty, "Not in code: \(catalogued.subtracting(declared).sorted())")
+    }
+
+    /// Without ButchKit's bundle, a lookup searches the app's catalogs and shows the raw key.
+    @Test("Every lookup names ButchKit's bundle", arguments: components)
+    func bundle(component: (catalog: String, strings: String)) throws {
+        let table = Self.table(component.catalog)
+        let code = try Self.code(component.strings)
+        let lookups = try code.matches(of: Regex(#"(?:tableName|table): ""# + table + #"""#)).count
+        let withBundle = try code.matches(of: Regex(#"(?:tableName|table): ""# + table + #"", bundle: \.module"#)).count
+        #expect(lookups > 0)
+        #expect(lookups == withBundle)
     }
 
     /// One language with one word missing shows that word in English.

@@ -47,14 +47,14 @@ public struct ExternalPackagesLink: View {
         } label: {
             ExternalPackagesLinkLabel(systemImage: systemImage)
         }
-        .accessibilityHint(Text(ExternalPackagesStrings.linkHint))
+        .accessibilityHint(Text("accessibility.hint.externalPackages.link", tableName: "ExternalPackages", bundle: .module))
 #else
         NavigationLink {
             ExternalPackagesView(packages: packages)
         } label: {
             ExternalPackagesLinkLabel(systemImage: systemImage)
         }
-        .accessibilityHint(Text(ExternalPackagesStrings.linkHint))
+        .accessibilityHint(Text("accessibility.hint.externalPackages.link", tableName: "ExternalPackages", bundle: .module))
 #endif
     }
 }
@@ -66,12 +66,12 @@ private struct ExternalPackagesLinkLabel: View {
     var body: some View {
         if let systemImage {
             Label {
-                Text(ExternalPackagesStrings.title)
+                Text("label.externalPackages.title", tableName: "ExternalPackages", bundle: .module)
             } icon: {
                 Image(systemName: systemImage)
             }
         } else {
-            Text(ExternalPackagesStrings.title)
+            Text("label.externalPackages.title", tableName: "ExternalPackages", bundle: .module)
         }
     }
 }
