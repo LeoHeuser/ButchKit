@@ -48,6 +48,17 @@ No service locators, registries or DI containers. `EnvironmentKey`, `Environment
 
 **The environment does not reach everywhere.** `@Environment` only exists inside a view body, so services, actors and background work cannot read it. Every such type must also be constructible directly, and that direct path is the primary one. The environment is layered on top of it, never the only way in.
 
+# Localization
+
+ButchKit words its own components with String Catalogs. Follow "Localization" in `Documentation/ButchKit.md`.
+
+- Every word a component shows on its own is a `LocalizedStringResource` in the component's `…Strings` enum, as in `PaywallStrings`: the key, the English as `defaultValue`, the component's `table:`, `bundle: .atURL(Bundle.module.bundleURL)` and a `comment` for translators. Never make the app hand in such a word, and never add a `…Texts` struct for it.
+- One catalog per component, in its folder, named after its table, declared with `.process(...)` in `Package.swift` and listed in the component table.
+- Keys come from the code, and Xcode extracts them. Never invent a key in a catalog that the code does not declare.
+- A new word ships translated into every language the catalogs carry. `LocalizationTests` fails on a missing word, a missing language or a broken placeholder.
+- The catalogs carry every language a consuming app ships. A language missing there shows English in that app.
+- Only what is app-specific comes from the app: marketing pages, the plan name, package descriptions, the app's own errors.
+
 # Logging
 
 Follow `Documentation/LoggingStrategy.md`. Its "Rules for agents" section at the end is the checklist — read it before writing a log statement. Three rules matter enough to repeat here, because getting them wrong is not recoverable after the fact:
