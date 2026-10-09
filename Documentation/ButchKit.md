@@ -16,19 +16,40 @@ Prose that applies across the library. These are binding for how ButchKit is bui
 
 ## Localization
 
-ButchKit ships no strings and names no keys. Every text a ButchKit view shows is handed in by the
-app: as a `LocalizedStringKey` (a `LocalizedStringResource` in the paywall, whose values are
-`Sendable`), as a `String` the app resolved from its own table, or as a
-closure that builds a `Text`. The key is therefore written in the app's code, where Xcode finds
-it and extracts it into the app's catalog like any other string. The app owns the wording, the
-keys and the translations, nothing is added to a catalog by hand, and a ButchKit surface speaks
-every language the app does.
+ButchKit words its own components. Each component that shows words keeps them in a String
+Catalog of its own, next to its code, and looks them up in ButchKit's resource bundle. An app
+hands in no words for them, and nothing of ButchKit's appears in the app's catalogs.
 
-The one exception is a license text in `ExternalPackage.License`. It is a legal text, not an
-interface word, so ButchKit ships the standard ones in their original English, and nobody
-translates them.
+| Catalog | Component |
+|---|---|
+| `Paywall.xcstrings` | Paywall: the sheet, its alerts, the segmented control and the settings row |
+| `ExternalPackages.xcstrings` | External packages: the list, the package pages, the switch and the settings row |
 
-Which table a key lives in is the app's choice. The convention ButchKit's own types assume:
+How it is built:
+
+- The English is the source and stands in the code, as the `defaultValue` of a
+  `LocalizedStringResource` in the component's `…Strings` enum. Xcode extracts it into the
+  component's catalog when it builds the package, like any other string. A new word is a new
+  property there, never a key added to a catalog by hand.
+- Each word is a `LocalizedStringResource` on `bundle: .atURL(Bundle.module.bundleURL)` and the
+  component's own `table:`, so SwiftUI resolves it when it draws.
+- A package's bundle follows the language the app has chosen. ButchKit therefore never shows a
+  language the app does not support. The reverse is the one rule to keep: an app language
+  missing from these catalogs shows ButchKit's words in English. The catalogs carry every
+  language a consuming app ships; an app that adds a language needs a ButchKit release with it.
+- Translations are reviewed in Xcode's catalog editor. A draft is marked "Needs Review" there
+  until someone has checked it.
+
+What stays with the app is what only the app can word: the paywall's marketing pages
+(`PaywallFeature`), the name of what it sells (`PaywallConfiguration.planName`), each package's
+description and note (`ExternalPackage`), its own errors, and the close words of the general
+utilities, which take a `LocalizedStringKey` as before. Those are written in the app's code and
+extracted into the app's catalogs.
+
+A license text in `ExternalPackage.License` is a legal text, not an interface word, so ButchKit
+ships the standard ones in their original English, and nobody translates them.
+
+For the app's own strings the convention ButchKit assumes is three tables:
 
 | Table | For |
 |---|---|
@@ -49,14 +70,14 @@ Every type is documented in code. This is the map.
 The library ships as one target, but it is organised as components that each live in their own
 folder and can be read, used and eventually split out on their own. Each component below states
 what it **uses** from the rest of ButchKit. Nothing in a component is specific to one app: every
-text, identifier, product and URL comes from the app that uses it.
+app-specific text, identifier, product and URL comes from the app that uses it.
 
 | Component | Uses from ButchKit | Resources |
 |---|---|---|
 | Logging | nothing | none |
 | User-facing errors | Logging, `StringTable` | none |
-| Paywall | Logging, `GatedWebView`, `Device`, the sheet close button | preview images and a preview StoreKit file |
-| External packages | nothing | none |
+| Paywall | Logging, `GatedWebView`, `Device`, the sheet close button | `Paywall.xcstrings`, preview images and a preview StoreKit file |
+| External packages | nothing | `ExternalPackages.xcstrings` |
 | Web views (`GatedWebView`, `WebViewSheet`, `WebViewButton`) | the sheet close button | none |
 | Everything else in General and Token utility | nothing | none |
 
@@ -90,13 +111,12 @@ internal type shared across components: split into separate targets, it has to b
 
 `Sources/ButchKit/Services/PaywallService/`
 
-- `View.paywallEnvironment(_:texts:features:onEvent:)` — root-level integration. Creates the service, injects it, refreshes on foreground and attaches the paywall sheet.
+- `View.paywallEnvironment(_:features:onEvent:)` — root-level integration. Creates the service, injects it, refreshes on foreground and attaches the paywall sheet.
 - `View.paywallEnvironment(_:)` — the same for a `PaywallService` the app owns: several windows, or code outside the views that needs the answer.
 - `PaywallService` — `hasAccess` and `entitlement`, fed by StoreKit 2, `verifiedEntitlement` once StoreKit has confirmed them, `isLocked` for drawing the locked state, `onVerifiedEntitlementChange` for whatever follows the entitlement outside a view, `present(source:)` and `require(source:_:)` to show the paywall from anywhere, and `restorePurchases()` for a settings row.
-- `PaywallConfiguration` — the subscription group and the lifetime products, at least one of the two, policy URLs, the marketing pages' height and the app group for the cache.
+- `PaywallConfiguration` — the subscription group and the lifetime products, at least one of the two, policy URLs, the marketing pages' height, the app group for the cache and the optional `planName`.
 - `PaywallEntitlementCache` — the last confirmed entitlement, readable from a widget, an extension or an App Intent.
 - `PaywallEntitlement` — `none`, `subscription` or `lifetime`.
-- `PaywallTexts` — every word the paywall and the settings row show, handed in by the app in groups: `Sheet`, `OfferTabs`, `StatusRow`, `SubscriptionOverlap`.
 - `PaywallFeature` — one marketing page: title, description, image, and whether it shows only to a user who can still get the introductory offer.
 - `PaywallEvent` — the funnel, forwarded through `PaywallService.onEvent` to the app's analytics, each with a stable `name` and `parameters`.
 - `PaywallPurchaseFailure` — the kind of a failed purchase, what `PaywallEvent.purchaseFailed` carries in place of the error's text.
@@ -104,21 +124,20 @@ internal type shared across components: split into separate targets, it has to b
 - `SubscriptionPhase` — trial or paid, renewing or canceled: the once-per-service snapshot `PaywallEvent.subscriptionStatus` carries.
 - `PaywallRequest` — the presentation in flight.
 - `PaywallStatusRow` — the settings row: plan name, renewal date and management; the lifetime purchase, with management while a subscription still renews; or the offer.
-- `PaywallStatusReader` — the same status and actions as a `PaywallStatus`, for an app that draws its own row.
+- `PaywallStatusReader` — the same status, actions and words as a `PaywallStatus`, for an app that draws its own row.
 - `View.paywallSheet()` — reinforcement for views that are themselves sheets.
 
 ### External packages
 
 `Sources/ButchKit/General Utility/ExternalPackagesView/` — setup in [ExternalPackages.md](ExternalPackages.md).
 
-- `ExternalPackagesView` — the app's external packages, one section each, with a switch under every package the user may turn off. Each row opens the package's page with its license text. Opened from wherever the app likes, with the app's `ExternalPackage.all` and `externalPackagesTexts`.
+- `ExternalPackagesView` — the app's external packages, one section each, with a switch under every package the user may turn off. Each row opens the package's page with its license text. Opened from wherever the app likes, with the app's `ExternalPackage.all`.
 - `ExternalPackagesLink` — the settings row that opens it: pushed on iPhone and iPad, its own window on the Mac.
 - `ExternalPackagesWindow` — that window, declared once in the app's body (macOS only).
 - `ExternalPackageToggle` — one package's switch, for a second place such as a privacy screen.
 - `ExternalPackage` — one package: name, license, purpose, source, a note under its switch, and what the app does when the switch flips. `issues(in:)` checks the app's list in its tests.
 - `ExternalPackage.License` — MIT, Apache 2.0, BSD 2- and 3-Clause with their standard texts, or a license of the package's own.
 - `ExternalPackage.ID` — the name a package is switched under, its `Availability` (`required`, `optOut`, `optIn`), the app group the decision is stored in, and `isEnabled`, the gate the app asks before it runs the package.
-- `ExternalPackagesTexts` — every word the list and the package pages show, handed in by the app.
 
 ### General utility
 

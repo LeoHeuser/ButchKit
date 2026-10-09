@@ -17,25 +17,25 @@ import SwiftUI
 ///     case .none where status.isLoading:
 ///         ProgressView()
 ///     case .none:
-///         Button(rowTexts.offer, action: status.showPaywall)
+///         Button(action: status.showPaywall) { status.offerTitle }
+///             .accessibilityHint(status.offerHint)
 ///     case .subscription, .lifetime:
 ///         LabeledContent {
 ///             if status.canManageSubscription {
-///                 Button(rowTexts.manage, action: status.manageSubscription)
+///                 Button(action: status.manageSubscription) { status.manageTitle }
+///                     .accessibilityLabel(status.manageLabel)
+///                     .accessibilityHint(status.manageHint)
 ///             }
 ///         } label: {
-///             rowTexts.planName(status.planName)
-///             if let detail = status.detail {
-///                 rowTexts.detail(detail)
-///             }
+///             status.planTitle
+///             status.detailText
 ///         }
 ///     }
 /// }
 /// ```
 ///
-/// Belongs below the root's `View.paywallEnvironment(_:texts:features:)`. The `rowTexts` above are
-/// a ``PaywallTexts/StatusRow`` the app declares for itself, or words of its own altogether. A
-/// settings screen presented as a sheet also needs `View.paywallSheet()` on its content, otherwise
+/// Belongs below the root's `View.paywallEnvironment(_:features:)`. The words above are
+/// ButchKit's own, on ``PaywallStatus``; an app may use words of its own instead. A settings screen presented as a sheet also needs `View.paywallSheet()` on its content, otherwise
 /// the paywall has nowhere to appear from. ``PaywallStatusRow`` is the plain row built on this.
 public struct PaywallStatusReader<Content: View>: View {
     private let source: String
@@ -67,6 +67,7 @@ public struct PaywallStatusReader<Content: View>: View {
             lifetimeProductID: paywall.lifetimeProductID,
             lifetimeIsFamilyShared: paywall.lifetimeIsFamilyShared,
             planNames: paywall.planNames,
+            configuredPlanName: paywall.configuration.planName,
             showPaywall: showPaywall,
             manageSubscription: { managesSubscription = true }
         )

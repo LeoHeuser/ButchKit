@@ -99,7 +99,7 @@ struct PaywallPolicyLineTests {
     /// read differently.
     @Test("Names the terms first, then the privacy policy")
     func order() {
-        let sentence = PaywallOneTimeStore.policySentence(terms: "TERMS", privacy: "PRIVACY", connector: "AND")
+        let sentence = PaywallOneTimeStore.policySentence(terms: "TERMS", privacy: "PRIVACY", connector: " AND ")
         #expect(String(sentence.characters) == "TERMS AND PRIVACY")
     }
 
@@ -107,7 +107,7 @@ struct PaywallPolicyLineTests {
     /// of ours, which the line catches itself rather than letting it leave for a browser.
     @Test("Makes both titles links, and only the titles")
     func links() {
-        let sentence = PaywallOneTimeStore.policySentence(terms: "TERMS", privacy: "PRIVACY", connector: "AND")
+        let sentence = PaywallOneTimeStore.policySentence(terms: "TERMS", privacy: "PRIVACY", connector: " AND ")
         let links = sentence.runs.compactMap(\.link)
         #expect(links == [PaywallOneTimeStore.termsURL, PaywallOneTimeStore.privacyURL])
 
@@ -227,7 +227,7 @@ struct PaywallServiceTests {
     /// taps anything.
     private func makeService(initialized: Bool = true) -> PaywallService {
         clearCache()
-        let service = PaywallService(configuration: config, texts: .preview)
+        let service = PaywallService(configuration: config)
         if initialized { _ = service.markInitialized() }
         return service
     }
@@ -367,7 +367,7 @@ struct PaywallServiceTests {
     func purchaseWritesOnlyWhatStoreKitConfirmed() {
         clearCache()
         UserDefaults.standard.set(PaywallEntitlement.lifetime.rawValue, forKey: PaywallEntitlementCache.key)
-        let service = PaywallService(configuration: config, texts: .preview)
+        let service = PaywallService(configuration: config)
 
         // A verified subscription replayed by `Transaction.updates` at launch, before the first
         // entitlement read has landed.
@@ -425,7 +425,7 @@ struct PaywallServiceTests {
     func namesPurchaseOverACachedEntitlement() {
         clearCache()
         PaywallEntitlementCache().write(.lifetime)
-        let service = PaywallService(configuration: config, texts: .preview)
+        let service = PaywallService(configuration: config)
         #expect(service.lifetimeProductID == nil)
         service.handleSuccessfulPurchase(productID: "supporter", subscriptionGroupID: nil, isDirectPurchase: true)
         #expect(service.lifetimeProductID == "supporter")
@@ -436,7 +436,7 @@ struct PaywallServiceTests {
     func restoresCache(productID: String) {
         let first = makeService()
         first.handleSuccessfulPurchase(productID: productID, subscriptionGroupID: config.lifetimeProductIDs.contains(productID) ? nil : "TEST")
-        let second = PaywallService(configuration: config, texts: .preview)
+        let second = PaywallService(configuration: config)
         #expect(second.entitlement == first.entitlement)
         clearCache()
     }
@@ -447,7 +447,7 @@ struct PaywallServiceTests {
     func restoresLegacyCache() {
         clearCache()
         UserDefaults.standard.set(true, forKey: PaywallEntitlementCache.legacyKey)
-        let service = PaywallService(configuration: config, texts: .preview)
+        let service = PaywallService(configuration: config)
         #expect(service.entitlement == .subscription)
         clearCache()
     }
@@ -526,7 +526,7 @@ struct PaywallServiceTests {
         let first = makeService()
         first.handleSuccessfulPurchase(productID: "yearly", subscriptionGroupID: "TEST")
 
-        let second = PaywallService(configuration: config, texts: .preview)
+        let second = PaywallService(configuration: config)
         #expect(second.hasAccess)
         #expect(second.verifiedEntitlement == nil)
         #expect(!second.hasVerifiedAccess)
@@ -544,7 +544,7 @@ struct PaywallServiceTests {
     func requireWaitsThenPresents() async {
         clearCache()
         UserDefaults.standard.set(PaywallEntitlement.lifetime.rawValue, forKey: PaywallEntitlementCache.key)
-        let service = PaywallService(configuration: config, texts: .preview)
+        let service = PaywallService(configuration: config)
         var ran = false
         service.require(source: "export") { ran = true }
         #expect(!ran)
@@ -624,14 +624,14 @@ struct PaywallServiceTests {
         let first = makeService()
         first.purchaseDidPend(source: "export", productID: "yearly")
 
-        let second = PaywallService(configuration: config, texts: .preview)
+        let second = PaywallService(configuration: config)
         var received: [PaywallEvent] = []
         second.onEvent = { received.append($0) }
         second.handleSuccessfulPurchase(productID: "yearly", subscriptionGroupID: "TEST")
         #expect(received == [.purchaseApproved(source: "export", productID: "yearly")])
 
         // Once, not on every launch after.
-        let third = PaywallService(configuration: config, texts: .preview)
+        let third = PaywallService(configuration: config)
         third.onEvent = { received.append($0) }
         third.handleSuccessfulPurchase(productID: "yearly", subscriptionGroupID: "TEST")
         #expect(received.count == 1)
@@ -657,7 +657,7 @@ struct PaywallServiceTests {
         clearCache()
         let old = PaywallPendingPurchase(source: "export", productID: "yearly", date: .now.addingTimeInterval(-PaywallPendingPurchase.lifetime - 1))
         PaywallEntitlementCache().write(pendingPurchase: old)
-        let service = PaywallService(configuration: config, texts: .preview)
+        let service = PaywallService(configuration: config)
         var received: [PaywallEvent] = []
         service.onEvent = { received.append($0) }
         service.handleSuccessfulPurchase(productID: "yearly", subscriptionGroupID: "TEST")
@@ -909,12 +909,12 @@ struct PaywallServiceTests {
         // A returning free user: the last launch left its answer behind.
         clearCache()
         PaywallEntitlementCache().write(.none)
-        let returning = PaywallService(configuration: config, texts: .preview)
+        let returning = PaywallService(configuration: config)
         #expect(returning.isLocked)
 
         clearCache()
         PaywallEntitlementCache().write(.subscription)
-        let subscriber = PaywallService(configuration: config, texts: .preview)
+        let subscriber = PaywallService(configuration: config)
         #expect(!subscriber.isLocked)
         clearCache()
     }
@@ -974,8 +974,7 @@ struct PaywallServiceTests {
             configuration: PaywallConfiguration(
                 subscriptionGroupID: "TEST",
                 legacyCache: .init(key: "isPro", suiteName: suiteName)
-            ),
-            texts: .preview
+            )
         )
         #expect(service.entitlement == .subscription)
         #expect(UserDefaults.standard.string(forKey: PaywallEntitlementCache.key) == nil)
@@ -1004,7 +1003,7 @@ struct PaywallServiceTests {
     @Test("Reloads the widgets when the answer in the app group changes, and only then")
     func reloadsWidgets() async {
         clearGroup()
-        let grouped = PaywallService(configuration: PaywallConfiguration(subscriptionGroupID: "TEST", appGroupID: suiteName), texts: .preview)
+        let grouped = PaywallService(configuration: PaywallConfiguration(subscriptionGroupID: "TEST", appGroupID: suiteName))
         var reloads = 0
         grouped.reloadWidgets = { reloads += 1 }
 

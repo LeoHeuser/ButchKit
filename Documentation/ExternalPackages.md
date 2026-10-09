@@ -20,14 +20,13 @@ The component stands on its own: it uses no other part of ButchKit, only SwiftUI
 | **`ExternalPackage.ID`** | The name a package is switched under, whether it can be switched (`availability`), where the decision is stored, and the `isEnabled` gate | You, one `static let` per package |
 | **`ExternalPackage`** | One package: name, license, purpose, source, and what happens when its switch flips | You, once per package |
 | **`ExternalPackage.License`** | The license, with the copyright notice and the full text | You, once per package |
-| **`ExternalPackagesTexts`** | Every word the screens show around the packages | You, once per app |
 | **`ExternalPackagesView`** | The screen: one section per package, with the switch under each optional one | ButchKit |
 | **`ExternalPackagesLink`**, **`ExternalPackagesWindow`** | The settings row that opens the screen, and the screen's window on the Mac | ButchKit |
 | **`ExternalPackageToggle`** | One package's switch, for a second place such as a privacy screen | ButchKit |
 
 ## Setup
 
-Every app declares its packages in **one dedicated file**, `ExternalPackagesDefinition.swift`. That file is the whole definition: which packages, which of them are optional, what switching one does, and which words the screens show.
+Every app declares its packages in **one dedicated file**, `ExternalPackagesDefinition.swift`. That file is the whole definition: which packages, which of them are optional, what switching one does, and what the app uses each one for.
 
 The example uses an analytics SDK, because an analytics package is the typical optional one. Any other package is declared the same way.
 
@@ -68,28 +67,6 @@ extension ExternalPackage {
             url: "https://example.com/charts"
         )
     ]
-}
-
-// The app's display name from the bundle, so a renamed app cannot leave the old name in the
-// text. The app's own constant: ButchKit does not provide one.
-private let appName = Bundle.main.object(forInfoDictionaryKey: "CFBundleDisplayName") as? String ?? "App"
-
-// Every word the screens show. Written here, so Xcode extracts each key into the app's
-// catalogs; see Localization below. Computed, because `ExternalPackagesTexts` is not
-// `Sendable` and a global `let` of it does not compile in Swift 6 language mode.
-var externalPackagesTexts: ExternalPackagesTexts {
-    ExternalPackagesTexts(
-        title: "text.settings.licenses.title",
-        emptyTitle: "text.settings.licenses.empty.title",
-        purpose: Text("text.packages.purpose \(appName)"),
-        sourceHint: String(localized: "accessibility.link.settings.licenses.source", table: "Accessibility"),
-        toggle: { Text("toggle.packages.enabled \($0)") },
-        toggleHint: String(localized: "accessibility.toggle.packages.enabled", table: "Accessibility"),
-        detail: .init(
-            source: "button.packages.source",
-            openHint: String(localized: "accessibility.link.settings.licenses.open", table: "Accessibility")
-        )
-    )
 }
 ```
 
@@ -146,12 +123,7 @@ In the settings, use the row ButchKit ships. It pushes the list on iPhone and iP
 
 ```swift
 Section {
-    ExternalPackagesLink(
-        packages: ExternalPackage.all,
-        texts: externalPackagesTexts,
-        systemImage: "checkmark.seal",
-        hint: String(localized: "accessibility.link.settings.licenses", table: "Accessibility")
-    )
+    ExternalPackagesLink(packages: ExternalPackage.all, systemImage: "checkmark.seal")
 }
 ```
 
@@ -159,7 +131,7 @@ On the Mac, declare that window once in the app's body. A `Settings` window has 
 
 ```swift
 #if os(macOS)
-ExternalPackagesWindow(packages: ExternalPackage.all, texts: externalPackagesTexts)
+ExternalPackagesWindow(packages: ExternalPackage.all)
 #endif
 ```
 
@@ -173,7 +145,7 @@ People who want to turn analytics off look under privacy, not under licenses. Sh
 
 ```swift
 Section {
-    ExternalPackageToggle(package: ExternalPackage.all[0], texts: externalPackagesTexts)
+    ExternalPackageToggle(package: ExternalPackage.all[0])
 }
 ```
 
@@ -278,25 +250,11 @@ To see the decision in a diagnostics file, log it once at launch at `notice`, fo
 
 ## Localization
 
-ButchKit ships no strings and names no keys. Every word the screens show is handed in through `ExternalPackagesTexts`, and every package's purpose and note through the package. Each key is therefore written in the app's own code, where Xcode finds it and extracts it into the app's catalog like any other string. See [ButchKit.md](ButchKit.md#localization) for the rule. The license texts are the one exception: they are legal texts, not interface words, and stay in their original English.
+Every word around the packages is ButchKit's own, from `ExternalPackages.xcstrings` in the package: the list's title "Licenses", the empty state, the purpose caption, the switch, the source link and every VoiceOver hint. They follow the language the app runs in, see [ButchKit.md](ButchKit.md#localization). The app's name in the purpose caption and the switch's hint is read from the app's bundle, `CFBundleDisplayName`, in the app's language.
 
-`description` is handed in as a `String.LocalizationValue` and resolved in `Bundle.main`, the consuming app. It is resolved once, when the entry is created, and stored as a `String`: since `ExternalPackage.all` is a static constant, the language is the one the app runs in when the array is first read. A package's `name` and `license` are not language and stay as written. `note` is a `LocalizedStringResource`, resolved when it is shown.
+What stays with the app is what only the app knows: each package's `description` and `note`. `description` is handed in as a `String.LocalizationValue` and resolved in `Bundle.main`, the consuming app. It is resolved once, when the entry is created, and stored as a `String`: since `ExternalPackage.all` is a static constant, the language is the one the app runs in when the array is first read. `note` is a `LocalizedStringResource`, resolved when it is shown. A package's `name` and `license` are not language and stay as written.
 
-The switch's label is a closure that receives the package's name, so the key and its placeholder stand in the app's code together.
-
-The code says "external packages"; what the user reads is the app's own word, typically "Licenses". The keys above follow the user's word.
-
-`detail` is optional, so an app that has not written its words yet keeps building. Without it, each row opens the package's source directly, as in ButchKit 2.0, and no license text is shown.
-
-Suggested wording:
-
-| Key | English | German |
-|---|---|---|
-| Switch | `Use %@` | `%@ verwenden` |
-| Switch hint | `Lets the app use this package.` | `Erlaubt der App, dieses Paket zu verwenden.` |
-| Purpose caption | `Purpose in %@:` | `Verwendung in %@:` |
-| Source link | `Source code` | `Quellcode` |
-| Row hint | `Shows the license of this package.` | `Zeigt die Lizenz dieses Pakets.` |
+The license texts are legal texts, not interface words, and stay in their original English.
 
 ## What happens underneath
 
@@ -313,6 +271,12 @@ Deliberately, to stay one system:
 - **No switch for a required package.** Declare the id `.required`, and nothing can turn the package off.
 - **No instance access from the reaction.** The closure lives in `ExternalPackage.all`, a static array, so it reaches static API only.
 - **No reaction to changes from elsewhere.** Only a switch runs `onEnabledChange`. Nothing else writes the decision.
+
+## Moving to ButchKit 3.0
+
+1. Delete `externalPackagesTexts` and drop `texts:` from `ExternalPackagesView`, `ExternalPackagesLink`, `ExternalPackagesWindow` and `ExternalPackageToggle`, and `hint:` from `ExternalPackagesLink`.
+2. Delete the keys only those texts used from the app's catalogs. Xcode marks them stale after the next build.
+3. Every row now opens the package's page. The 2.0 behaviour, a row that opens the source directly, is gone.
 
 ## Moving from ButchKit 2.0
 
@@ -332,20 +296,20 @@ Deliberately, to stay one system:
 - **In the app's tests**, `ExternalPackage.issues(in: ExternalPackage.all)` is empty. See [Setup](#setup).
 - **In the app**, on a device: turn the switch off, relaunch, and check the analytics dashboard for test signals. None should arrive. Turn it back on and relaunch, and a new session should appear. Dashboards show signals with a few minutes' delay, so wait before calling it either way.
 - **With an app group**, turn the switch off in a 2.0 build, update to the build with the group, launch once, and check that the switch is still off and the extension sends nothing.
-- **Previews** read `ExternalPackagesPreviewData.swift`, so the sample packages and words live in one place.
+- **Previews** read `ExternalPackagesPreviewData.swift`, so the sample packages live in one place.
 
 ## Rules for agents
 
 A compact checklist for anyone, human or AI, touching external packages in a ButchKit project:
 
-- External packages are declared in one file, `ExternalPackagesDefinition.swift`: one `nonisolated static let` per `ExternalPackage.ID`, one static array of `ExternalPackage` values in `ExternalPackage.all`, and one `ExternalPackagesTexts` value. Nowhere else.
+- External packages are declared in one file, `ExternalPackagesDefinition.swift`: one `nonisolated static let` per `ExternalPackage.ID`, and one static array of `ExternalPackage` values in `ExternalPackage.all`. Nowhere else.
 - Declare every id with its `availability`. Never use the deprecated `ExternalPackage.ID(_:)` or `isOptional:`, and never rename an id that has shipped.
 - Choose `.required` only if the app cannot run without the package, `.optIn` for anything that needs consent, and `.optOut` otherwise.
 - Declare the license the package's `LICENSE` file actually states. When its text differs from the standard one, use `.custom` with the file's text.
-- Pass the app's one array and one texts value, `ExternalPackage.all` and `externalPackagesTexts`, at every call site. Declare the texts value as a computed property, never a global `let`. Never build a second array or a second texts value for one entry point.
+- Pass the app's one array, `ExternalPackage.all`, at every call site. Never build a second array for one entry point.
 - Open the list with `ExternalPackagesLink`, and on the Mac declare `ExternalPackagesWindow`. A switch outside the list is an `ExternalPackageToggle`, never a `Toggle` of its own.
 - Ask the package's `isEnabled`, such as `ExternalPackage.ID.analytics.isEnabled`, where a package starts. Never read the defaults key yourself, and never keep a copy of the answer.
 - Put the reaction to the switch in `onEnabledChange`, on the package. Never wire it at a call site.
 - Keep the `issues(in:)` test in the app's tests.
-- Every word is written in the app's code, in `ExternalPackagesTexts` and the packages, so Xcode extracts it into the app's catalogs. Never add a key to a catalog by hand.
+- The screens' own words are ButchKit's. The app words only each package's description and note, in its own code, so Xcode extracts them into its catalogs.
 - If the app uses TelemetryDeck, opt out with `analyticsDisabled` on a kept configuration. Never skip `initialize`, and never `terminate()` to opt out.

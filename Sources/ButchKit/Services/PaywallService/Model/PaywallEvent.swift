@@ -12,7 +12,7 @@
 /// the bridge is one line and an event added by a later ButchKit flows through it untouched:
 ///
 /// ```swift
-/// .paywallEnvironment(paywallConfig, texts: paywallTexts) { event in
+/// .paywallEnvironment(paywallConfig) { event in
 ///     TelemetryDeck.signal(event.name, parameters: event.parameters)
 /// }
 /// ```

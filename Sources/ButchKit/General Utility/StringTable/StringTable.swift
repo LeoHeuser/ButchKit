@@ -8,9 +8,9 @@
 /**
  
  # StringTable
- Which catalog a ButchKit string is looked up in. ButchKit ships no strings of its own: every
- `LocalizedStringKey` it renders resolves in the consuming app's bundle, so the app owns the
- wording and the translations, and the paywall speaks every language the app does.
+ Which of the app's catalogs a string is looked up in. ButchKit's own components word themselves
+ from their own catalogs; every `LocalizedStringKey` an app hands in resolves in the app's bundle,
+ so the app owns that wording and its translations.
  
  Three tables are the convention:
  - `Localizable` — everything by default, buttons included. SwiftUI's own default, so it needs no

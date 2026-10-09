@@ -7,7 +7,7 @@ How to sell a subscription with ButchKit: one configuration, one modifier, one q
 The paywall is for an app that earns its money through one auto-renewable subscription group, one or more lifetime unlocks sold as one-time purchases, or both. The paywall module turns that into a fixed system so an app never writes StoreKit code again:
 
 1. **One truth.** `PaywallService.hasAccess` is the only place that knows whether the user pays. Every gate in the app asks it, nothing else. `entitlement` says whether it is a subscription or the lifetime product; only the settings row needs that. `verifiedEntitlement` is the same answer once StoreKit has confirmed it, for anything that outlasts the screen.
-2. **One integration.** `.paywallEnvironment(_:texts:features:onEvent:)` on the root view. It creates the service, injects it, runs the first entitlement check, reads again on every foreground and owns the paywall sheet. An app that needs the service outside its views builds it itself and hands it to `.paywallEnvironment(_:)`.
+2. **One integration.** `.paywallEnvironment(_:features:onEvent:)` on the root view. It creates the service, injects it, runs the first entitlement check, reads again on every foreground and owns the paywall sheet. An app that needs the service outside its views builds it itself and hands it to `.paywallEnvironment(_:)`.
 3. **One look.** The paywall has one fixed layout: full-bleed photo pages that advance on their own, over Apple's `SubscriptionStoreView`. Apps supply pages, not views.
 
 The paywall is not a place for experiments. If the layout has to change, it changes in ButchKit, for every app that uses it.
@@ -16,9 +16,8 @@ The paywall is not a place for experiments. If the layout has to change, it chan
 
 | Part | Meaning | Who decides |
 |---|---|---|
-| **`PaywallConfiguration`** | The subscription group and the lifetime products, at least one of the two, the two policy URLs and how tall the marketing pages are | You, once per app |
+| **`PaywallConfiguration`** | The subscription group and the lifetime products, at least one of the two, the two policy URLs, how tall the marketing pages are, and optionally the name of what the app sells | You, once per app |
 | **`PaywallFeature`** | One marketing page: a title, plus an optional description and photo | You, once per app, as many as you like, or none |
-| **`PaywallTexts`** | Every word the paywall and the settings row show, in groups; an app words only the groups it shows | You, once per app |
 | **`PaywallService`** | `hasAccess`, `entitlement` and `verifiedEntitlement`, plus `present` and `require` to show the paywall and `restorePurchases` for a settings row | ButchKit, created by the root modifier or by the app |
 | **`PaywallConfiguration.LegacyCache`** | Where the app kept its answer before it adopted ButchKit, read until ButchKit has one | You, only when migrating |
 | **`PaywallEntitlementCache`** | The last confirmed entitlement, readable from a widget, an extension or an App Intent | ButchKit writes, you read |
@@ -65,43 +64,8 @@ let paywallConfig = PaywallConfiguration(
     privacyPolicyURL: "https://example.com/privacy",
     termsOfServiceURL: "https://example.com/terms",
     featureAreaHeight: 0.62,  // share of the sheet the pages take: 0 hides them, 1 fills it
-    appGroupID: "group.com.example.App"   // only for an app with a widget or an extension
-)
-
-// Every word the paywall and the settings row show. Written here, so Xcode extracts each key
-// into the app's catalogs; see Localization below.
-let paywallTexts = PaywallTexts(
-    // The paywall itself. Always needed.
-    sheet: .init(
-        dismiss: "button.dismissSheet",
-        privacyPolicyTitle: "webView.privacyPolicy.title",
-        termsOfServiceTitle: "webView.termsOfUse.title",
-        purchaseFailedTitle: String(localized: "error.paywall.purchaseFailed.title", table: "Errors"),
-        purchaseFailedMessage: String(localized: "error.paywall.purchaseFailed.message", table: "Errors"),
-        restorePurchases: "button.paywall.restorePurchases",
-        restoreSucceededTitle: String(localized: "alert.paywall.restore.succeeded.title"),
-        nothingToRestoreTitle: String(localized: "alert.paywall.restore.nothingFound.title"),
-        restoreFailedTitle: String(localized: "error.paywall.restoreFailed.title", table: "Errors"),
-        restoreFailedMessage: String(localized: "error.paywall.restoreFailed.message", table: "Errors")
-    ),
-    // The segmented control. Only for an app that sells lifetime products next to a subscription.
-    offerTabs: .init(
-        subscription: "paywall.segment.subscription",
-        oneTime: "paywall.segment.oneTime"
-    ),
-    // The settings row. Only for an app that uses PaywallStatusRow, or wants its words.
-    statusRow: .init(
-        offer: "button.settings.subscribe",
-        offerLabel: String(localized: "accessibility.button.settings.subscribe.label", table: "Accessibility"),
-        offerHint: String(localized: "accessibility.button.settings.subscribe", table: "Accessibility"),
-        fallbackPlanName: "label.settings.subscription.plan",
-        manage: "button.settings.manageSubscription",
-        manageLabel: String(localized: "accessibility.button.settings.manageSubscription.label", table: "Accessibility"),
-        manageHint: String(localized: "accessibility.button.settings.manageSubscription", table: "Accessibility"),
-        renews: { Text("label.settings.subscription.renews \($0, format: .dateTime.day().month().year())") },
-        ends: { Text("label.settings.subscription.ends \($0, format: .dateTime.day().month().year())") },
-        billingIssue: String(localized: "error.settings.subscription.billingIssue", table: "Errors")
-    )
+    appGroupID: "group.com.example.App",   // only for an app with a widget or an extension
+    planName: "label.paywall.planName"     // optional: "Upgrade to Pro" instead of "Upgrade"
 )
 
 let paywallFeatures: [PaywallFeature] = [
@@ -114,7 +78,9 @@ let paywallFeatures: [PaywallFeature] = [
 ]
 ```
 
-All three are `Sendable`, so they stand at file scope as plain `let` constants under Swift 6, built once. Never make them computed properties: the root would rebuild every word on every render.
+Both are `Sendable`, so they stand at file scope as plain `let` constants under Swift 6, built once. Never make them computed properties: the root would rebuild them on every render.
+
+Every other word the paywall and the settings row show is ButchKit's own, see [Localization](#localization).
 
 Only the title is required. Leave out `image` and the page shows its text centred, on a dark ground when another page carries a photo and following the device otherwise; leave out `description` and the title stands on its own. A page with a photo keeps its text at the bottom, where the photo has faded out.
 
@@ -122,7 +88,7 @@ The pages themselves are optional too. An app that has no marketing photos yet l
 
 ```swift
 RootView()
-    .paywallEnvironment(paywallConfig, texts: paywallTexts)
+    .paywallEnvironment(paywallConfig)
 ```
 
 Then the paywall shows Apple's own storefront instead: app icon, app name and the subscription group's description from App Store Connect, over the same subscription controls. Nothing to write and nothing to design, and it sells from the first build. An empty array does the same thing, so a `features` list that ends up empty is a valid state rather than a broken paywall.
@@ -137,7 +103,7 @@ struct MyApp: App {
     var body: some Scene {
         WindowGroup {
             RootView()
-                .paywallEnvironment(paywallConfig, texts: paywallTexts, features: paywallFeatures)
+                .paywallEnvironment(paywallConfig, features: paywallFeatures)
         }
     }
 }
@@ -157,7 +123,7 @@ struct MyApp: App {
     @State private var paywall: PaywallService
 
     init() {
-        let paywall = PaywallService(configuration: paywallConfig, texts: paywallTexts, features: paywallFeatures)
+        let paywall = PaywallService(configuration: paywallConfig, features: paywallFeatures)
         paywall.onEvent = { TelemetryDeck.signal($0.name, parameters: $0.parameters) }
         _paywall = State(initialValue: paywall)
     }
@@ -262,7 +228,7 @@ RootView()
     .onVerifiedEntitlementChange { entitlement in
         exporter.limit = entitlement == .none ? .free : .unlimited
     }
-    .paywallEnvironment(paywallConfig, texts: paywallTexts)
+    .paywallEnvironment(paywallConfig)
 ```
 
 It runs once StoreKit has answered and again on every change: a purchase, a restore, a subscription running out, a refund. It never runs with the cached answer. Do not write an `onChange` over `hasAccess` for this: before the first check it reports the cache, and a subscriber on a fresh install would be written down as not paying.
@@ -324,21 +290,19 @@ Form {
 }
 ```
 
-One row, two states, both of which lead somewhere. Its words come from the `statusRow` group of
-the app's `PaywallTexts`; beyond that there is nothing to configure and no state to pass in.
-Without that group the row stays empty and logs a fault.
+One row, two states, both of which lead somewhere. Its words are ButchKit's own; beyond that
+there is nothing to configure and no state to pass in.
 
 On the first launch after an install, with nothing cached and StoreKit still to answer, the row
 shows a spinner rather than the offer: a subscriber who just reinstalled is not asked to subscribe.
 
-- **Not subscribed:** one button that opens the paywall through `present`. Name it after what
-  the paywall shows rather than after one plan: `See subscription plans` stays true however many
-  plans the group holds.
+- **Not subscribed:** one button that opens the paywall through `present`: `Upgrade`, or
+  `Upgrade to Pro` with a `planName` in the configuration.
 - **Subscribed:** the plan's name as App Store Connect spells it, localized per storefront, so it
-  follows an upgrade or a downgrade on its own. Under it the next step: `Renews on …`,
-  `Ends on …` once auto-renew is off, or a billing issue during the grace period after a failed
-  renewal. Beside it a Manage button. Until StoreKit has answered, the row shows
-  `fallbackPlanName` and no second line.
+  follows an upgrade or a downgrade on its own. Under it the next step: `Renews …`,
+  `Ends …` once auto-renew is off, or a billing issue during the grace period after a failed
+  renewal. Beside it a Manage button. Until StoreKit has answered, the row shows the
+  configuration's `planName`, or `Subscription` without one, and no second line.
 - **Lifetime:** the name of the lifetime product held, from App Store Connect. A one-time
   purchase has no renewal, no end and no plan to change, so there is nothing to manage. A user who
   holds both a subscription and a lifetime product sees this row: the subscription is not what
@@ -379,27 +343,28 @@ PaywallStatusReader(source: "settings") { status in
         ProgressView()
     case .none:
         Button(action: status.showPaywall) {
-            Label { Text(rowTexts.offer) } icon: { Image(systemName: "crown") }
+            Label { status.offerTitle } icon: { Image(systemName: "crown") }
         }
+        .accessibilityHint(status.offerHint)
     case .subscription, .lifetime:
         LabeledContent {
             if status.canManageSubscription {
-                Button(rowTexts.manage, action: status.manageSubscription)
+                Button(action: status.manageSubscription) { status.manageTitle }
+                    .accessibilityLabel(status.manageLabel)
+                    .accessibilityHint(status.manageHint)
             }
         } label: {
-            rowTexts.planName(status.planName)
-            if let detail = status.detail {
-                rowTexts.detail(detail)
-            }
+            status.planTitle
+            status.detailText
         }
     }
 }
 ```
 
-`rowTexts` is a `PaywallTexts.StatusRow` the app declares as a constant of its own in
-`Paywall.swift`, and passes as `statusRow:` too if it also uses the plain row anywhere. What each
-value means is documented on `PaywallStatus`. `planName(_:)` and `detail(_:)` turn the name and
-the detail into the same words the plain row shows, as `Text` the app styles freely.
+The words come with the status: `offerTitle`, `planTitle`, `detailText`, `manageTitle` and their
+accessibility labels and hints are the same ones the plain row shows, as `Text` the app styles
+freely. What each value means is documented on `PaywallStatus`. An app may use words of its own
+instead.
 
 `status.isFamilyShared` says that what the user holds is another family member's, shared through
 Family Sharing. They cannot manage or cancel it, so a row or a support screen says "your family's
@@ -412,7 +377,7 @@ life of the app. A settings screen opened for the tenth time shows them at once,
 In a preview, a row of the app's own gets its status from
 `PaywallStatus(previewEntitlement:planName:detail:canManageSubscription:isFamilyShared:isLoading:)`,
 every state without a StoreKit file. Like the service's own preview initializers,
-`PaywallService(configuration:texts:previewEntitlement:)` and `(…previewSubscribed:)`, it exists in
+`PaywallService(configuration:previewEntitlement:)` and `(…previewSubscribed:)`, it exists in
 every build: a `#Preview` compiles in release too, so a preview needs no `#if DEBUG` around it.
 Use them in previews only, since they grant whatever entitlement they are given.
 
@@ -474,7 +439,7 @@ A child's purchase waits for a parent. Apple's sheet says so, the paywall stays 
 
 ### Lifetime next to a subscription
 
-A subscriber who buys a lifetime product keeps paying for the subscription, and no app can cancel it for them. With the `subscriptionOverlap` group in `PaywallTexts`, an alert says so once the paywall has closed, and its button opens the system's subscription management. Without the group nothing shows, and the Manage button in the settings row remains the only way there. Only an app that sells both needs the words. The alert shows once, on the purchase, never for a purchase the App Store merely replays at launch, and not when the subscription already ends on its own. An Ask to Buy approval that arrives before the app has read the subscription stays armed until it has, so the alert survives a parent approving overnight.
+A subscriber who buys a lifetime product keeps paying for the subscription, and no app can cancel it for them. An alert says so once the paywall has closed, and its button opens the system's subscription management. The Manage button in the settings row leads there too. The alert shows once, on the purchase, never for a purchase the App Store merely replays at launch, and not when the subscription already ends on its own. An Ask to Buy approval that arrives before the app has read the subscription stays armed until it has, so the alert survives a parent approving overnight.
 
 ### Without pages
 
@@ -527,7 +492,7 @@ ButchKit has no analytics dependency. Hand the root modifier a handler, its `onE
 
 ```swift
 RootView()
-    .paywallEnvironment(paywallConfig, texts: paywallTexts, features: paywallFeatures) { event in
+    .paywallEnvironment(paywallConfig, features: paywallFeatures) { event in
         TelemetryDeck.signal(event.name, parameters: event.parameters)
     }
 ```
@@ -559,38 +524,16 @@ The handler is in place before the first entitlement check. Assigning `PaywallSe
 
 ## Localization
 
-ButchKit ships no strings and names no keys. Every word the paywall and the settings row show is
-handed in through `PaywallTexts`, and every page through `PaywallFeature`. Each key is therefore
-written in the app's own code, where Xcode finds it and extracts it into the app's catalog like
-any other string: nothing is added by hand, and the paywall speaks every language the app does.
+Every word around the products is ButchKit's own, from `Paywall.xcstrings` in the package: the
+close and restore buttons, the policy links, every alert, the segmented control and the settings
+row. They follow the language the app runs in, see [ButchKit.md](ButchKit.md#localization). The
+app words only what is its own:
 
-That is also why `PaywallTexts` has no default words. A default would be a string in none of the
-app's catalogs, shown in English in every language, and nobody would notice. Instead the words
-come in groups and an app supplies only the groups it shows: `sheet` always, `offerTabs` and
-`subscriptionOverlap` with lifetime products next to a subscription, `statusRow` with the settings
-row. Inside `sheet`, the `restoreOffline` and `productsUnavailable` groups and `purchasedLabel` and `policyConnector` are optional. A later ButchKit
-that needs a new word adds a new optional group or falls back to a word that is already there;
-it never adds a required parameter to an existing group, so an update does not stop an app from
-compiling.
-
-The app also picks each string's table. Plain labels are `LocalizedStringResource`s, written as
-string literals, on the default `Localizable` table. Accessibility text and error text are `String`s the app resolves itself,
-naming the table: the purchase and restore failure alerts and the billing issue from `Errors`, the
-restore success and nothing-to-restore titles from `Localizable`, the two accessibility labels and
-the two VoiceOver hints from `Accessibility`. See [ButchKit.md](ButchKit.md#localization) for the rule.
-
-Suggested English for the settings row: `See subscription plans` for the offer, `Renews on %@` and
-`Ends on %@` for the dated lines, `Payment didn't go through.` for the billing issue. For the
-paywall: `Subscription` and `One-Time Purchase` for the two segments, `Restore` for the button at
-the top right, short enough to sit opposite the close button. For the restore alerts: `Purchase Restored`, `No Purchase to Restore`, and
-`Restore Failed` with `Your purchase could not be restored. Try again in a moment.`, and for the
-optional `restoreOffline` group `No Connection` with `The App Store could not be reached. Check your
-internet connection and try again.` Without that group the failure message has to cover a missing
-connection too, so word it to. For the optional rest: `Purchased` for an owned lifetime product,
-`Purchases Unavailable` with `Check your connection and try again.` and `Try Again` for the
-`productsUnavailable` group,
-and for the overlap alert `Your subscription is still running` with `Your purchase unlocks
-everything for good. The subscription renews until you cancel it.`, `Manage Subscription` and `Later`.
+- **The pages**, `PaywallFeature`, written in the app's code and extracted into its catalogs.
+- **The name of what it sells**, `PaywallConfiguration.planName`, for example "Pro". The row then
+  offers `Upgrade to Pro` and names the plan `Pro` until the App Store's own name has loaded.
+  Without it the row says `Upgrade` and `Subscription`. A brand name that is the same in every
+  language can be a verbatim `LocalizedStringResource`.
 
 Product names and prices come from App Store Connect, localized per storefront. Never hardcode a price in a marketing page.
 
@@ -604,7 +547,7 @@ Product names and prices come from App Store Connect, localized per storefront. 
 - **Foreground.** The root modifier re-reads the entitlements each time the scene becomes active, so a subscription that ran out in the background locks the app at once. One local StoreKit read. The app writes no `scenePhase` handler for this; `refreshesOnForeground: false` in the configuration turns it off.
 - **Offline.** StoreKit 2 answers entitlement checks from its own local cache, so a subscriber keeps access without a network. Online, StoreKit's answer is definitive: no entitlement means no access.
 - **Verification failures.** Unverified transactions are not finished, as Apple recommends. They are logged and reported as `.verificationFailed`.
-- **Logging.** Under the app's own subsystem, category `Purchase`; `PaywallService(configuration:texts:features:subsystem:)` takes another subsystem. `notice` for a cleared or revoked subscription, a kept fresh purchase, a pending and an approved Ask to Buy purchase, a `require` replaced before the first check, and a restore that succeeded, found nothing, was cancelled or went offline; `error` for a failed purchase, a failed restore, a transaction that failed verification, a subscription status that could not be loaded, a paywall request no sheet picked up, and a lifetime product that does not load, with its identifier; `fault` for a setup that cannot work: a configuration that sells nothing, or missing words for the segments or the settings row; `debug` for each resolved check. See `LoggingStrategy.md`.
+- **Logging.** Under the app's own subsystem, category `Purchase`; `PaywallService(configuration:features:subsystem:)` takes another subsystem. `notice` for a cleared or revoked subscription, a kept fresh purchase, a pending and an approved Ask to Buy purchase, a `require` replaced before the first check, and a restore that succeeded, found nothing, was cancelled or went offline; `error` for a failed purchase, a failed restore, a transaction that failed verification, a subscription status that could not be loaded, a paywall request no sheet picked up, and a lifetime product that does not load, with its identifier; `fault` for a setup that cannot work: a configuration that sells nothing; `debug` for each resolved check. See `LoggingStrategy.md`.
 
 ## What the paywall uses from ButchKit
 
@@ -615,7 +558,7 @@ The paywall is the largest part of ButchKit and the one with the most dependenci
 - **`Device`**, read from `\.device`, to decide whether Manage opens Apple's sheet or the App Store, see [The settings row](#the-settings-row).
 - **The close button** of `sheetDismissButton(_:)`, on the policy sheet of the one-time side. Through its internal type, as the paywall's words are `LocalizedStringResource`s.
 
-From the system it uses StoreKit, SwiftUI and OSLog, and WidgetKit to reload the app's widget timelines when an app group is set. It is also the only part of ButchKit that ships resources: the placeholder photos of its own previews. Their `.storekit` file sits next to them but is excluded from the bundle.
+From the system it uses StoreKit, SwiftUI and OSLog, and WidgetKit to reload the app's widget timelines when an app group is set. Its resources are its catalog, `Paywall.xcstrings`, and the placeholder photos of its own previews. Their `.storekit` file sits next to them but is excluded from the bundle.
 
 ## What it does not do
 
@@ -634,6 +577,25 @@ Deliberately, to stay one system:
 - **Sheet-in-sheet**: open the paywall from a root view and from inside a presented sheet with `.paywallSheet()`. Both must appear.
 - **Running out while open**: with the `.storekit` file's renewals sped up, cancel the subscription in the Transactions manager and leave the app in the foreground. The gate must close when the period ends, without leaving the app.
 
+## Migrating from 2.x to 3.0
+
+3.0 moves the paywall's words into ButchKit. Per app:
+
+1. **Delete `paywallTexts`** and drop `texts:` from `.paywallEnvironment(…)` and from
+   `PaywallService(…)`, the preview initializers included.
+2. **The name of what the app sells**: if the offer said "Upgrade to Pro" or the fallback plan
+   name was "Pro", pass that key as `planName:` to `PaywallConfiguration`.
+3. **Custom rows on `PaywallStatusReader`**: `paywall.texts.statusRow` is gone. Use
+   `status.offerTitle`, `status.offerHint`, `status.planTitle`, `status.detailText`,
+   `status.manageTitle`, `status.manageLabel` and `status.manageHint`.
+4. **Delete the keys** that only `paywallTexts` used from the app's catalogs. Xcode marks them
+   stale after the next build.
+5. **Check the languages.** Every language the app ships must be in `Paywall.xcstrings`, or the
+   paywall shows English there.
+
+New for an app that sells lifetime products next to a subscription: the segmented control, the
+offline restore alert, the unavailable state and the overlap alert now always have their words.
+
 ## Migrating from 1.x to 2.0
 
 2.0 collects every breaking change in one release, so that later ones need none. Per app, in `Paywall.swift` unless said otherwise:
@@ -651,7 +613,7 @@ Deliberately, to stay one system:
 
 A compact checklist for anyone, human or AI, touching the paywall in an app that uses ButchKit:
 
-- The paywall is defined in `Paywall.swift` and installed once with `.paywallEnvironment(_:texts:features:onEvent:)` on the root. Nowhere else.
+- The paywall is defined in `Paywall.swift` and installed once with `.paywallEnvironment(_:features:onEvent:)` on the root. Nowhere else.
 - Views read the service with `@Environment(PaywallService.self)`. Only an app with several windows, or with code outside its views that needs the answer, constructs one: once, in the `App`, handed to `.paywallEnvironment(_:)` on every scene and passed on by initializer. Never a second instance, never a global.
 - Gate views on `paywall.hasAccess`. Never read StoreKit or `Transaction` for the subscription state.
 - Draw locks, banners and read-only states from `paywall.isLocked`, never from `!hasAccess` or an `isInitialized` check of the app's own.
@@ -659,7 +621,7 @@ A compact checklist for anyone, human or AI, touching the paywall in an app that
 - Anything that outlasts the screen reads `verifiedEntitlement` or `hasVerifiedAccess`: what is stored, synced, sent to a server or reported. `nil` means not known yet; never write it down as "free".
 - A widget, an extension or an App Intent reads `PaywallEntitlementCache` with the configuration's `appGroupID`. Never mirror the entitlement into a key of the app's own, and never reload widget timelines for it: the service does.
 - Never write a `scenePhase` handler that refreshes the paywall, and never wrap `refresh()` in a detached task. The root modifier refreshes on foreground, and `refresh()` is safe under cancellation.
-- Declare `paywallConfig`, `paywallTexts` and `paywallFeatures` as file-scope `let` constants, never as computed properties.
+- Declare `paywallConfig` and `paywallFeatures` as file-scope `let` constants, never as computed properties.
 - Forward analytics with `event.name` and `event.parameters`. A `switch` over `PaywallEvent` always has a `default`.
 - A "Restore Purchases" row in the settings calls `paywall.restorePurchases()` from a button and shows the outcome.
 - Use `require(source:_:)` for actions, `present(source:)` for offers. Never declare a paywall sheet in a view.
@@ -668,12 +630,12 @@ A compact checklist for anyone, human or AI, touching the paywall in an app that
 - The free tier is a rule about scope, never a counter. Never store a use, day or document count.
 - Trials come from Apple's introductory offer only. Never build one out of `UserDefaults`.
 - Configure by subscription group, never by product identifier. The only products ever named are the lifetime unlocks. Debug and Release group IDs differ. An app that sells only lifetime unlocks leaves the group out.
-- An app with lifetime products next to a subscription supplies at least one marketing page, and the `offerTabs` and `subscriptionOverlap` words.
+- An app with lifetime products next to a subscription supplies at least one marketing page.
 - A page that mentions a free trial or any introductory price is `introOfferOnly: true`. App copy that mentions one checks `isEligibleForIntroOffer == true`.
 - Never load the plan, its name or the subscription status in app code. `PaywallStatusReader` has them.
 - Never tune `featureAreaHeight` to make the Subscribe button fit a small screen. The paywall does that.
 - Marketing pages are `PaywallFeature` values, never custom views. The layout is fixed in ButchKit.
 - Pages are optional. With none, Apple's storefront takes over; never build a placeholder page to fill the gap.
-- Every paywall string is written in the app's code, in `PaywallTexts` and the feature pages, so Xcode extracts it into the app's catalogs. Never add a key to a catalog by hand.
+- The paywall's own words are ButchKit's. Never re-create them in the app. The app words only its feature pages and, optionally, `planName`, in its own code, so Xcode extracts them into its catalogs.
 - Forward `PaywallEvent` to analytics from one place, the `onEvent` handler of `.paywallEnvironment`. Never track a restore or renewal as a conversion.
 - Never add consumables, a non-consumable that unlocks only part of the app, a grace period, or network checks to the service.

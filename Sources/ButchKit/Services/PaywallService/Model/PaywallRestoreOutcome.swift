@@ -7,9 +7,9 @@
 
 import StoreKit
 
-/// How a restore ended. On the paywall every outcome but ``cancelled`` gets an alert, worded by
-/// the app through ``PaywallTexts``; an app that runs ``PaywallService/restorePurchases()`` from
-/// its settings does the same with words of its own.
+/// How a restore ended. On the paywall every outcome but ``cancelled`` gets an alert in ButchKit's
+/// own words; an app that runs ``PaywallService/restorePurchases()`` from its settings words the
+/// outcome itself.
 public enum PaywallRestoreOutcome: Sendable, Equatable {
     /// A purchase is back and unlocks the app.
     case restored

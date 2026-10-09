@@ -5,7 +5,7 @@
 //  Created by Leo Heuser on 17.09.26.
 //
 
-import Foundation
+import SwiftUI
 
 /// Everything a settings row needs to say what the user pays for, and the two ways on from there.
 /// Handed out by ``PaywallStatusReader``.
@@ -18,8 +18,8 @@ public struct PaywallStatus {
     /// stays `false` and the offer shows at once.
     public let isLoading: Bool
     /// The name of the product held, as App Store Connect spells it and localized per storefront.
-    /// `nil` until it has loaded, when it cannot load, and without an entitlement, so the app shows
-    /// its own fallback name then.
+    /// `nil` until it has loaded, when it cannot load, and without an entitlement. ``planTitle``
+    /// falls back on its own.
     public let planName: String?
     /// What happens next with the subscription. Only for ``PaywallEntitlement/subscription``: a
     /// lifetime purchase has no renewal and no end.
@@ -41,6 +41,8 @@ public struct PaywallStatus {
     /// The product the name is loaded for. Kept apart from the name so the reader loads again only
     /// when the plan itself changes.
     let productID: String?
+    /// The app's name for what it sells, see ``PaywallConfiguration/planName``.
+    let configuredPlanName: LocalizedStringResource?
 
     /// Decides the status from what StoreKit reported. Pure, so tests feed it without StoreKit.
     ///
@@ -53,6 +55,7 @@ public struct PaywallStatus {
         lifetimeProductID: String?,
         lifetimeIsFamilyShared: Bool,
         planNames: [String: String],
+        configuredPlanName: LocalizedStringResource? = nil,
         showPaywall: @escaping @MainActor () -> Void,
         manageSubscription: @escaping @MainActor () -> Void
     ) {
@@ -74,7 +77,7 @@ public struct PaywallStatus {
             isFamilyShared = heldPlan?.isFamilyShared == true
         case .lifetime:
             // StoreKit lets no app cancel a subscription, so a lifetime purchase cannot replace one.
-            // What it can do is lead there: ``PaywallTexts/SubscriptionOverlap`` right after the
+            // What it can do is lead there: an alert right after the
             // purchase, and the Manage button here for as long as the subscription renews.
             productID = lifetimeProductID
             detail = nil
@@ -86,6 +89,7 @@ public struct PaywallStatus {
         self.entitlement = entitlement
         self.isLoading = entitlement == .none && !isEntitlementKnown
         self.planName = productID.flatMap { planNames[$0] }
+        self.configuredPlanName = configuredPlanName
         self.showPaywall = showPaywall
         self.manageSubscription = manageSubscription
     }
@@ -110,5 +114,60 @@ public struct PaywallStatus {
         self.showPaywall = {}
         self.manageSubscription = {}
         self.productID = nil
+        self.configuredPlanName = nil
     }
+}
+
+// MARK: - Words
+
+/// ButchKit's words for the row, in the language the app runs in. ``PaywallStatusRow`` shows
+/// them; a row of the app's own on ``PaywallStatusReader`` takes the same ones and still decides
+/// every font, color and icon itself.
+public extension PaywallStatus {
+    /// The button that opens the paywall: "Upgrade to Pro" with a
+    /// ``PaywallConfiguration/planName``, "Upgrade" without. Also its accessibility label, so
+    /// Voice Control finds it by what it shows.
+    var offerTitle: Text {
+        if let configuredPlanName {
+            Text(PaywallStrings.offer(planName: String(localized: configuredPlanName)))
+        } else {
+            Text(PaywallStrings.offer)
+        }
+    }
+
+    /// The VoiceOver hint of ``offerTitle``.
+    var offerHint: Text { Text(PaywallStrings.offerHint) }
+
+    /// The plan's name: the App Store's own once loaded, until then the app's
+    /// ``PaywallConfiguration/planName`` or ButchKit's "Subscription" or "Lifetime Purchase".
+    var planTitle: Text {
+        // A product name from App Store Connect is already localized there.
+        if let planName { return Text(verbatim: planName) }
+        if let configuredPlanName { return Text(configuredPlanName) }
+        return Text(entitlement == .lifetime ? PaywallStrings.lifetimePlan : PaywallStrings.subscriptionPlan)
+    }
+
+    /// The line under the plan's name, `nil` when there is nothing to say.
+    var detailText: Text? {
+        detail.map { detail in
+            switch detail {
+            case .renews(let date): Text(PaywallStrings.renews(on: date.formatted(Self.dateFormat)))
+            case .ends(let date): Text(PaywallStrings.ends(on: date.formatted(Self.dateFormat)))
+            case .billingIssue: Text(PaywallStrings.billingIssue)
+            }
+        }
+    }
+
+    /// The button into the system's subscription management. The verb alone, next to the plan.
+    var manageTitle: Text { Text(PaywallStrings.manage) }
+
+    /// The accessibility label of ``manageTitle``, which says what is managed and keeps the
+    /// visible word for Voice Control.
+    var manageLabel: Text { Text(PaywallStrings.manageLabel) }
+
+    /// The VoiceOver hint of ``manageTitle``.
+    var manageHint: Text { Text(PaywallStrings.manageHint) }
+
+    /// One format for both dated lines, so they cannot drift apart.
+    private static var dateFormat: Date.FormatStyle { .dateTime.day().month().year() }
 }

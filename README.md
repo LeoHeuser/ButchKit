@@ -34,8 +34,9 @@ Prose that applies across the library lives in [`Documentation/`](Documentation/
 
 ## Localization
 
-ButchKit ships no strings. Every text it shows is handed in by your app, so each key is written
-in your code and Xcode extracts it into your catalogs like any other string.
+ButchKit words its own components in its own String Catalogs, in every language a consuming app
+ships, and follows the language your app runs in. Your app words only what is its own: marketing
+pages, package descriptions, its errors.
 See [Localization](Documentation/ButchKit.md#localization) for which string goes where.
 
 ## Development

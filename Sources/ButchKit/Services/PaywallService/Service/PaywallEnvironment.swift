@@ -10,7 +10,6 @@ import SwiftUI
 /// Creates the service and keeps it for the life of the view, for an app that does not own one.
 struct PaywallEnvironmentModifier: ViewModifier {
     let configuration: PaywallConfiguration
-    let texts: PaywallTexts
     let features: [PaywallFeature]
     let onEvent: ((PaywallEvent) -> Void)?
 
@@ -18,7 +17,7 @@ struct PaywallEnvironmentModifier: ViewModifier {
 
     func body(content: Content) -> some View {
         let service = holder.service {
-            let service = PaywallService(configuration: configuration, texts: texts, features: features)
+            let service = PaywallService(configuration: configuration, features: features)
             // Set before the first `initialize()`, so the launch's subscription status never goes
             // out to a listener that has not arrived yet.
             service.onEvent = onEvent
@@ -102,21 +101,21 @@ struct PaywallSheetModifier: ViewModifier {
 
         // After a lifetime purchase next to a subscription that still renews, once the paywall has
         // closed. From the host that presented it, the only one free to present again. Only an app
-        // that words the alert carries it, and StoreKit's management sheet with it: without the
-        // words there is no path here, and every host would hold both for a case it cannot reach.
-        if let texts = paywall.texts.subscriptionOverlap {
+        // that sells both carries the alert, and StoreKit's management sheet with it: every other
+        // host would hold both for a case it cannot reach.
+        if paywall.configuration.subscriptionGroupID != nil, !paywall.configuration.lifetimeProductIDs.isEmpty {
             host
                 .alert(
-                    texts.title,
+                    Text(PaywallStrings.overlapTitle),
                     isPresented: Binding<Bool>(
                         get: { paywall.presents(hostID) && paywall.showsSubscriptionOverlap },
                         set: { if !$0 { paywall.showsSubscriptionOverlap = false } }
                     )
                 ) {
-                    Button(texts.manage) { managesSubscription = true }
-                    Button(texts.later, role: .cancel) {}
+                    Button(PaywallStrings.manageSubscription) { managesSubscription = true }
+                    Button(PaywallStrings.later, role: .cancel) {}
                 } message: {
-                    Text(texts.message)
+                    Text(PaywallStrings.overlapMessage)
                 }
                 .modifier(ManageSubscriptionModifier(isRequested: $managesSubscription, subscriptionGroupID: paywall.configuration.subscriptionGroupID))
         } else {
@@ -150,7 +149,7 @@ public extension View {
     ///
     /// ```swift
     /// RootView()
-    ///     .paywallEnvironment(paywallConfig, texts: paywallTexts, features: paywallFeatures)
+    ///     .paywallEnvironment(paywallConfig, features: paywallFeatures)
     /// ```
     ///
     /// The pages are optional. Without them the paywall drops its own marketing content and shows
@@ -159,22 +158,23 @@ public extension View {
     ///
     /// ```swift
     /// RootView()
-    ///     .paywallEnvironment(paywallConfig, texts: paywallTexts)
+    ///     .paywallEnvironment(paywallConfig)
     /// ```
+    ///
+    /// Every word around the products is ButchKit's own, in the language the app runs in. The
+    /// app words only its pages and, optionally, ``PaywallConfiguration/planName``.
     ///
     /// - Parameters:
     ///   - configuration: The subscription group and policy URLs.
-    ///   - texts: Every word the paywall and the settings row show, from the app's own catalogs.
     ///   - features: The marketing pages the paywall shows, in order. Leave them out and the
     ///     paywall shows Apple's own storefront instead.
     ///   - onEvent: Where every ``PaywallEvent`` goes, usually the app's analytics.
     func paywallEnvironment(
         _ configuration: PaywallConfiguration,
-        texts: PaywallTexts,
         features: [PaywallFeature] = [],
         onEvent: ((PaywallEvent) -> Void)? = nil
     ) -> some View {
-        modifier(PaywallEnvironmentModifier(configuration: configuration, texts: texts, features: features, onEvent: onEvent))
+        modifier(PaywallEnvironmentModifier(configuration: configuration, features: features, onEvent: onEvent))
     }
 
     /// The same for an app that owns its ``PaywallService``: one with several windows, which
@@ -185,7 +185,7 @@ public extension View {
     /// ```swift
     /// @main
     /// struct MyApp: App {
-    ///     @State private var paywall = PaywallService(configuration: paywallConfig, texts: paywallTexts)
+    ///     @State private var paywall = PaywallService(configuration: paywallConfig)
     ///
     ///     var body: some Scene {
     ///         WindowGroup {
@@ -209,7 +209,7 @@ public extension View {
     /// appear on top of it, so a `present(source:)` from inside Settings would go nowhere. Apply
     /// this once to the content of such a sheet and the paywall presents from there instead.
     /// Views pushed onto a `NavigationStack` need nothing. Requires that a parent already
-    /// applied `.paywallEnvironment(_:texts:features:)`.
+    /// applied `.paywallEnvironment(_:features:)`.
     func paywallSheet() -> some View {
         modifier(PaywallSheetModifier())
     }
@@ -224,10 +224,10 @@ public extension View {
     ///     .onVerifiedEntitlementChange { entitlement in
     ///         exporter.limit = entitlement == .none ? .free : .unlimited
     ///     }
-    ///     .paywallEnvironment(paywallConfig, texts: paywallTexts)
+    ///     .paywallEnvironment(paywallConfig)
     /// ```
     ///
-    /// Belongs below `View.paywallEnvironment(_:texts:features:)`, so above it in the chain. Do
+    /// Belongs below `View.paywallEnvironment(_:features:)`, so above it in the chain. Do
     /// not write an `onChange` over ``PaywallService/hasAccess`` for this: before StoreKit has
     /// answered it reports the cache, and a subscriber on a fresh install would be written down as
     /// not paying.
