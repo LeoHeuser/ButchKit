@@ -89,7 +89,8 @@ app-specific text, identifier, product and URL comes from the app that uses it.
 | Everything else in General and Token utility | nothing | none |
 
 The paywall reaches the sheet close button through the internal `DismissSheetButton`, not the
-public `sheetDismissButton(_:)`, because it passes a `LocalizedStringResource`. That is the one
+public `sheetDismissButton(_:)`, because its word comes from ButchKit's own catalog, which a
+`LocalizedStringKey` cannot reach. That is the one
 internal type shared across components: split into separate targets, it has to become `package`.
 
 ### Logging
