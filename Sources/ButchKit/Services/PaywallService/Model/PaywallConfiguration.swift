@@ -10,7 +10,7 @@ import Foundation
 /// Everything the paywall needs to know about one app's products, plus the one layout choice an
 /// app makes: how much of the paywall its marketing pages take.
 ///
-/// A value, declared once in the app and handed to `View.paywallEnvironment(_:texts:features:)`:
+/// A value, declared once in the app and handed to `View.paywallEnvironment(_:features:)`:
 ///
 /// ```swift
 /// let paywallConfig = PaywallConfiguration(
@@ -64,6 +64,10 @@ public struct PaywallConfiguration: Sendable, Equatable {
     public let showsRedeemCode: Bool
     /// Where the app kept its own answer before it adopted ButchKit, see ``LegacyCache``.
     public let legacyCache: LegacyCache?
+    /// The app's name for what it sells, such as "Pro", from the app's own catalog. The settings
+    /// row then offers "Upgrade to Pro" and names the plan "Pro" until the App Store's own name
+    /// has loaded. `nil` keeps ButchKit's neutral "Upgrade" and "Subscription".
+    public let planName: LocalizedStringResource?
 
     /// A `Bool` in `UserDefaults` under which an app's own purchase code kept "this user pays",
     /// before the app adopted ButchKit. Read at launch until ButchKit has an answer of its own, so
@@ -90,7 +94,8 @@ public struct PaywallConfiguration: Sendable, Equatable {
         appGroupID: String? = nil,
         refreshesOnForeground: Bool = true,
         showsRedeemCode: Bool = false,
-        legacyCache: LegacyCache? = nil
+        legacyCache: LegacyCache? = nil,
+        planName: LocalizedStringResource? = nil
     ) {
         assert(subscriptionGroupID != nil || !lifetimeProductIDs.isEmpty, "A paywall needs a subscription group, lifetime products, or both")
         self.featureAreaHeight = min(max(featureAreaHeight, 0), 1)
@@ -102,6 +107,7 @@ public struct PaywallConfiguration: Sendable, Equatable {
         self.refreshesOnForeground = refreshesOnForeground
         self.showsRedeemCode = showsRedeemCode
         self.legacyCache = legacyCache
+        self.planName = planName
     }
 
     /// How tall the marketing pages are on a sheet of the given height: their share of it, less

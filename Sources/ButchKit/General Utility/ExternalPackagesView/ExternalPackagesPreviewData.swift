@@ -10,38 +10,6 @@ import SwiftUI
 
 // Every preview of the external packages list draws from these, so the sample copy lives in one place.
 
-extension ExternalPackagesTexts {
-    /// Plain words, since a ButchKit preview has no app catalog to look a key up in. Computed,
-    /// because the struct is not `Sendable`, which a static constant would require.
-    static var preview: ExternalPackagesTexts {
-        previewTexts(detail: .preview)
-    }
-
-    /// The same words without a package page, so each row opens its source directly.
-    static var previewWithoutDetail: ExternalPackagesTexts {
-        previewTexts(detail: nil)
-    }
-
-    private static func previewTexts(detail: Detail?) -> ExternalPackagesTexts {
-        ExternalPackagesTexts(
-            title: "External packages",
-            emptyTitle: "No packages",
-            purpose: Text(verbatim: "What this app uses it for"),
-            sourceHint: "Opens the source of this package.",
-            toggle: { Text(verbatim: "Use \($0)") },
-            toggleHint: "Lets the app use this package.",
-            detail: detail
-        )
-    }
-}
-
-extension ExternalPackagesTexts.Detail {
-    static let preview = ExternalPackagesTexts.Detail(
-        source: "Source code",
-        openHint: "Shows the license of this package."
-    )
-}
-
 extension ExternalPackage.ID {
     static let previewOptional = ExternalPackage.ID("previewOptional", availability: .optOut)
     static let previewRequired = ExternalPackage.ID("previewRequired", availability: .required)

@@ -14,8 +14,6 @@ import SwiftUI
 /// move.
 struct ExternalPackageDetail: View {
     let package: ExternalPackage
-    let texts: ExternalPackagesTexts
-    let detail: ExternalPackagesTexts.Detail
 
     var body: some View {
         List {
@@ -28,7 +26,7 @@ struct ExternalPackageDetail: View {
                 Section {
                     Link(destination: url) {
                         HStack {
-                            Text(detail.source)
+                            Text(ExternalPackagesStrings.source)
 
                             Spacer()
 
@@ -40,7 +38,7 @@ struct ExternalPackageDetail: View {
                                 .accessibilityHidden(true)
                         }
                     }
-                    .accessibilityHint(texts.sourceHint)
+                    .accessibilityHint(Text(ExternalPackagesStrings.sourceHint))
                 }
             }
         }
@@ -86,19 +84,19 @@ private struct ExternalPackageLicenseSection: View {
 #if DEBUG
 #Preview("MIT") {
     NavigationStack {
-        ExternalPackageDetail(package: .previewOptional, texts: .preview, detail: .preview)
+        ExternalPackageDetail(package: .previewOptional)
     }
 }
 
 #Preview("Apache 2.0") {
     NavigationStack {
-        ExternalPackageDetail(package: .previewRequired, texts: .preview, detail: .preview)
+        ExternalPackageDetail(package: .previewRequired)
     }
 }
 
 #Preview("No text") {
     NavigationStack {
-        ExternalPackageDetail(package: .previewLong, texts: .preview, detail: .preview)
+        ExternalPackageDetail(package: .previewLong)
     }
 }
 #endif

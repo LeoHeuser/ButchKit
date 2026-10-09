@@ -56,12 +56,12 @@ enum PaywallPreviewStore {
 extension PaywallService {
     /// A service over one preview store, for previews that need the products and nothing else.
     static func preview(_ store: PaywallPreviewStore) -> PaywallService {
-        PaywallService(configuration: store.configuration, texts: .preview)
+        PaywallService(configuration: store.configuration)
     }
 
     /// The same with a fixed answer for ``entitlement``, for previews of what a paying user sees.
     static func preview(_ store: PaywallPreviewStore, entitlement: PaywallEntitlement) -> PaywallService {
-        PaywallService(configuration: store.configuration, texts: .preview, previewEntitlement: entitlement)
+        PaywallService(configuration: store.configuration, previewEntitlement: entitlement)
     }
 }
 
@@ -70,7 +70,7 @@ extension PaywallView {
     /// `[]` for a paywall without pages.
     static func preview(_ store: PaywallPreviewStore, features: [PaywallFeature] = .previewFeatures) -> some View {
         PaywallView(request: PaywallRequest(source: "preview"))
-            .environment(PaywallService(configuration: store.configuration, texts: .preview, features: features))
+            .environment(PaywallService(configuration: store.configuration, features: features))
     }
 }
 #endif

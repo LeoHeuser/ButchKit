@@ -11,51 +11,24 @@ import SwiftUI
 /// it for.
 ///
 /// The whole row is the way in rather than a word underneath it: a row is a larger target than a
-/// line of text. With the app's ``ExternalPackagesTexts/Detail`` words it opens the package's own
-/// page, which holds the license text and the link to the source. Without them it opens the
-/// source directly, marked by an arrow at its trailing end.
+/// line of text. It opens the package's own page, which holds the license text and the link to the
+/// source.
 struct ExternalPackageRow: View {
     let package: ExternalPackage
-    let texts: ExternalPackagesTexts
 
     var body: some View {
-        if let detail = texts.detail {
-            NavigationLink {
-                ExternalPackageDetail(package: package, texts: texts, detail: detail)
-            } label: {
-                ExternalPackageRowContent(package: package, purpose: texts.purpose)
-            }
-            .accessibilityHint(detail.openHint)
-        } else if let url = package.url {
-            Link(destination: url) {
-                // A stack rather than `LabeledContent`: in a list, `LabeledContent` drops its value
-                // below a label that wraps, which put the arrow under the description instead of
-                // beside the name. On the first line's baseline, the arrow stays beside the name
-                // however many lines follow.
-                HStack(alignment: .firstTextBaseline) {
-                    ExternalPackageRowContent(package: package, purpose: texts.purpose)
-
-                    Spacer()
-
-                    // Sighted readers get nothing else that says this leaves the app; VoiceOver is
-                    // already told it is a link, so the arrow would only repeat that.
-                    Image(systemName: "arrow.up.right")
-                        .font(.footnote)
-                        .foregroundStyle(.secondary)
-                        .accessibilityHidden(true)
-                }
-            }
-            .accessibilityHint(texts.sourceHint)
-        } else {
-            ExternalPackageRowContent(package: package, purpose: texts.purpose)
+        NavigationLink {
+            ExternalPackageDetail(package: package)
+        } label: {
+            ExternalPackageRowContent(package: package)
         }
+        .accessibilityHint(Text(ExternalPackagesStrings.openHint))
     }
 }
 
 /// What every kind of row shows: which package, under which license, and what the app uses it for.
 private struct ExternalPackageRowContent: View {
     let package: ExternalPackage
-    let purpose: Text
 
     /// Between the name and the purpose. Wider than the gap inside the purpose, so the row reads
     /// as two blocks: which package, and why it is here. Scaled, so the gaps grow with the text.
@@ -83,7 +56,7 @@ private struct ExternalPackageRowContent: View {
                 .foregroundStyle(.tint)
 
             VStack(alignment: .leading, spacing: purposeSpacing) {
-                purpose
+                Text(ExternalPackagesStrings.purpose)
 
                 Text(verbatim: package.description)
             }
@@ -100,21 +73,13 @@ private struct ExternalPackageRowContent: View {
 }
 
 #if DEBUG
-#Preview("Opens its page") {
+#Preview {
     NavigationStack {
         List {
-            ExternalPackageRow(package: .previewRequired, texts: .preview)
+            ExternalPackageRow(package: .previewRequired)
 
-            ExternalPackageRow(package: .previewLong, texts: .preview)
+            ExternalPackageRow(package: .previewLong)
         }
-    }
-}
-
-#Preview("Opens its source") {
-    List {
-        ExternalPackageRow(package: .previewRequired, texts: .previewWithoutDetail)
-
-        ExternalPackageRow(package: .previewLong, texts: .previewWithoutDetail)
     }
 }
 #endif

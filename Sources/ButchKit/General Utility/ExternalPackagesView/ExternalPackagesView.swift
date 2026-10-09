@@ -11,7 +11,7 @@ import SwiftUI
 ///
 /// ```swift
 /// NavigationStack {
-///     ExternalPackagesView(packages: ExternalPackage.all, texts: externalPackagesTexts)
+///     ExternalPackagesView(packages: ExternalPackage.all)
 /// }
 /// ```
 ///
@@ -21,7 +21,7 @@ import SwiftUI
 /// than held by the view. A single switch outside the list is an ``ExternalPackageToggle``.
 ///
 /// Inside a navigation stack, because each package's row opens the package's own page with its
-/// license, once the app hands in ``ExternalPackagesTexts/Detail`` words.
+/// license. Every word around the packages is ButchKit's own, in the language the app runs in.
 ///
 /// One section per package, so an optional package's switch sits with the package it belongs to
 /// instead of reading as a list item of its own. The package row stays one link as a whole: a
@@ -42,9 +42,8 @@ public struct ExternalPackagesView: View {
 #endif
 
     private let packages: [ExternalPackage]
-    private let texts: ExternalPackagesTexts
 
-    public init(packages: [ExternalPackage], texts: ExternalPackagesTexts) {
+    public init(packages: [ExternalPackage]) {
         // Caught in the first preview rather than on a device. The app's tests can ask the same
         // through `ExternalPackage.issues(in:)`.
         assert(
@@ -52,16 +51,15 @@ public struct ExternalPackagesView: View {
             ExternalPackage.issues(in: packages).joined(separator: "\n")
         )
         self.packages = packages
-        self.texts = texts
     }
 
     public var body: some View {
         List(packages) { package in
             Section {
-                ExternalPackageRow(package: package, texts: texts)
+                ExternalPackageRow(package: package)
 
                 if package.isOptional {
-                    ExternalPackageToggle(package: package, texts: texts)
+                    ExternalPackageToggle(package: package)
                 }
             } footer: {
                 // What the switch does not say itself, such as when it takes full effect.
@@ -73,23 +71,29 @@ public struct ExternalPackagesView: View {
         // Laid over the list rather than replacing it: the list is what tracks the navigation bar.
         .overlay {
             if packages.isEmpty {
-                ContentUnavailableView(texts.emptyTitle, systemImage: "shippingbox")
+                ContentUnavailableView {
+                    Label {
+                        Text(ExternalPackagesStrings.emptyTitle)
+                    } icon: {
+                        Image(systemName: "shippingbox")
+                    }
+                }
             }
         }
-        .navigationTitle(texts.title)
+        .navigationTitle(Text(ExternalPackagesStrings.title))
     }
 }
 
 #if DEBUG
 #Preview {
     NavigationStack {
-        ExternalPackagesView(packages: [.previewOptional, .previewRequired], texts: .preview)
+        ExternalPackagesView(packages: [.previewOptional, .previewRequired])
     }
 }
 
 #Preview("Empty") {
     NavigationStack {
-        ExternalPackagesView(packages: [], texts: .preview)
+        ExternalPackagesView(packages: [])
     }
 }
 #endif

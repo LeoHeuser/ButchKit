@@ -15,13 +15,13 @@
  Integrate it once on the root view, with the app's configuration and marketing pages:
  ```swift
  RootView()
-     .paywallEnvironment(paywallConfig, texts: paywallTexts, features: paywallFeatures)
+     .paywallEnvironment(paywallConfig, features: paywallFeatures)
  ```
 
  Or own it: an app with several windows, or with code outside a view that needs the answer, builds
  the service itself, keeps it in its `App` and hands it to the same modifier:
  ```swift
- @State private var paywall = PaywallService(configuration: paywallConfig, texts: paywallTexts)
+ @State private var paywall = PaywallService(configuration: paywallConfig)
 
  RootView()
      .paywallEnvironment(paywall)
@@ -57,7 +57,7 @@
  Offline, StoreKit 2 answers from its own local cache, so a genuine subscriber keeps access.
 
  ## Direct construction
- `PaywallService(configuration: config, texts: texts)`. Handed to
+ `PaywallService(configuration: config)`. Handed to
  `View.paywallEnvironment(_:)`, the modifier starts it. Without a view, call `initialize()` once
  to start following StoreKit.
 
@@ -77,8 +77,6 @@ public final class PaywallService {
     public let configuration: PaywallConfiguration
     /// The marketing pages the paywall shows, in order.
     public let features: [PaywallFeature]
-    /// Every word the paywall and the settings row show, supplied by the app.
-    public let texts: PaywallTexts
 
     // MARK: - State
 
@@ -148,7 +146,7 @@ public final class PaywallService {
     /// Product names as App Store Connect spells them, by product, see ``loadPlanName(for:)``.
     private(set) var planNames: [String: String] = [:]
     /// Set once a lifetime purchase left a subscription renewing next to it and the paywall has
-    /// closed. The sheet host shows ``PaywallTexts/SubscriptionOverlap`` on it.
+    /// closed. The sheet host shows its alert on it.
     var showsSubscriptionOverlap = false
 
     // MARK: - Private State
@@ -217,17 +215,14 @@ public final class PaywallService {
     ///
     /// - Parameters:
     ///   - configuration: The subscription group, the optional lifetime products and the policy URLs.
-    ///   - texts: Every word the paywall and the settings row show.
     ///   - features: The marketing pages the paywall shows.
     ///   - subsystem: Where to log. Defaults to the app's own subsystem, see ``LoggerService``.
     public init(
         configuration: PaywallConfiguration,
-        texts: PaywallTexts,
         features: [PaywallFeature] = [],
         subsystem: String? = nil
     ) {
         self.configuration = configuration
-        self.texts = texts
         self.features = features
         let logger = LoggerService(subsystem: subsystem)["Purchase"]
         self.logger = logger
@@ -256,9 +251,6 @@ public final class PaywallService {
         if configuration.subscriptionGroupID == nil, configuration.lifetimeProductIDs.isEmpty {
             logger.fault("Paywall configuration sells nothing: no subscription group and no lifetime products")
         }
-        if configuration.subscriptionGroupID != nil, !configuration.lifetimeProductIDs.isEmpty, texts.offerTabs == nil {
-            logger.fault("Paywall segments have no titles: PaywallTexts.offerTabs is missing")
-        }
     }
 
     /// A service with a fixed answer, for previews: StoreKit has nothing to say in a preview, so
@@ -270,10 +262,9 @@ public final class PaywallService {
     ///
     /// - Parameters:
     ///   - configuration: The subscription group, which the settings row still reads.
-    ///   - texts: The app's own words, so the preview reads like the app.
     ///   - previewEntitlement: What ``entitlement`` answers.
-    public convenience init(configuration: PaywallConfiguration, texts: PaywallTexts, previewEntitlement: PaywallEntitlement) {
-        self.init(configuration: configuration, texts: texts)
+    public convenience init(configuration: PaywallConfiguration, previewEntitlement: PaywallEntitlement) {
+        self.init(configuration: configuration)
         entitlement = previewEntitlement
         // What a refresh would have found, so the settings row names a product.
         lifetimeProductID = previewEntitlement == .lifetime ? configuration.lifetimeProductIDs.first : nil
@@ -282,8 +273,8 @@ public final class PaywallService {
     }
 
     /// The same, for previews that only care whether the user pays.
-    public convenience init(configuration: PaywallConfiguration, texts: PaywallTexts, previewSubscribed: Bool) {
-        self.init(configuration: configuration, texts: texts, previewEntitlement: previewSubscribed ? .subscription : .none)
+    public convenience init(configuration: PaywallConfiguration, previewSubscribed: Bool) {
+        self.init(configuration: configuration, previewEntitlement: previewSubscribed ? .subscription : .none)
     }
 
     // SE-0371 isolated deinit: runs on the MainActor so it can reach the isolated task.
@@ -388,7 +379,7 @@ public final class PaywallService {
             let isOurs = presentedRequest != nil || pendingPurchase?.productID == productID
             // Armed, not decided: at launch an approval arrives before ``heldPlan`` is read, and
             // a decision against a plan that is still `nil` would lose the alert for good.
-            subscriptionOverlapIsDue = isOurs && texts.subscriptionOverlap != nil
+            subscriptionOverlapIsDue = isOurs
         }
         // Against what StoreKit has confirmed, never against ``entitlement``: that one starts as
         // the cached guess, and `max` would carry the guess into the cache as a confirmed answer.

@@ -14,7 +14,7 @@ import SwiftUI
 ///
 /// ```swift
 /// Section {
-///     ExternalPackageToggle(package: .analytics, texts: externalPackagesTexts)
+///     ExternalPackageToggle(package: .analytics)
 /// }
 /// ```
 ///
@@ -25,15 +25,13 @@ import SwiftUI
 /// Draws nothing for a required package, which has no switch.
 public struct ExternalPackageToggle: View {
     private let package: ExternalPackage
-    private let texts: ExternalPackagesTexts
 
     /// Stored under the package's id, which is what ``ExternalPackage/ID/isEnabled`` reads.
     @AppStorage private var isEnabled: Bool
 
-    public init(package: ExternalPackage, texts: ExternalPackagesTexts) {
+    public init(package: ExternalPackage) {
         assert(package.isOptional, "\(package.name) is required, so it has no switch.")
         self.package = package
-        self.texts = texts
         // Asking the gate first moves a decision into the app group, if the id names one and it
         // is not there yet, so the switch cannot show the default over a stored decision.
         _ = package.id.isEnabled
@@ -58,9 +56,9 @@ public struct ExternalPackageToggle: View {
                     package.onEnabledChange?(enabled)
                 }
             )) {
-                texts.toggle(package.name)
+                Text(ExternalPackagesStrings.toggle(package.name))
             }
-            .accessibilityHint(texts.toggleHint)
+            .accessibilityHint(Text(ExternalPackagesStrings.toggleHint))
         }
     }
 }
@@ -68,7 +66,7 @@ public struct ExternalPackageToggle: View {
 #if DEBUG
 #Preview {
     Form {
-        ExternalPackageToggle(package: .previewOptional, texts: .preview)
+        ExternalPackageToggle(package: .previewOptional)
     }
 }
 #endif

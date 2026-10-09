@@ -23,14 +23,12 @@ import SwiftUI
 /// }
 /// ```
 ///
-/// Belongs in a `Form` or a `List`, placed like ``PaywallStatusReader``, which it is built on. Every
-/// word it shows comes from the app's ``PaywallTexts``. An app that wants its own look builds the
-/// row on the reader instead.
+/// Belongs in a `Form` or a `List`, placed like ``PaywallStatusReader``, which it is built on. Its
+/// words are ButchKit's own, on ``PaywallStatus``. An app that wants its own look builds the row on
+/// the reader instead.
 public struct PaywallStatusRow: View {
     private let source: String
     private let systemImage: String?
-
-    @Environment(PaywallService.self) private var paywall
 
     /// Creates the row.
     ///
@@ -46,41 +44,33 @@ public struct PaywallStatusRow: View {
     }
 
     public var body: some View {
-        if let texts = paywall.texts.statusRow {
-            PaywallStatusReader(source: source) { status in
-                switch status.entitlement {
-                case .none where status.isLoading:
-                    // Nothing cached and StoreKit still to answer: a subscriber who just
-                    // reinstalled must not be offered a subscription.
-                    ProgressView()
-                        .frame(maxWidth: .infinity)
-                case .none:
-                    Button(action: status.showPaywall) {
-                        withIcon { Text(texts.offer) }
+        PaywallStatusReader(source: source) { status in
+            switch status.entitlement {
+            case .none where status.isLoading:
+                // Nothing cached and StoreKit still to answer: a subscriber who just
+                // reinstalled must not be offered a subscription.
+                ProgressView()
+                    .frame(maxWidth: .infinity)
+            case .none:
+                Button(action: status.showPaywall) {
+                    withIcon { status.offerTitle }
+                }
+                    .accessibilityHint(status.offerHint)
+            case .subscription, .lifetime:
+                LabeledContent {
+                    if status.canManageSubscription {
+                        Button(action: status.manageSubscription) { status.manageTitle }
+                            .accessibilityLabel(status.manageLabel)
+                            .accessibilityHint(status.manageHint)
                     }
-                        .accessibilityLabel(texts.offerLabel)
-                        .accessibilityHint(texts.offerHint)
-                case .subscription, .lifetime:
-                    LabeledContent {
-                        if status.canManageSubscription {
-                            Button(texts.manage, action: status.manageSubscription)
-                                .accessibilityLabel(texts.manageLabel)
-                                .accessibilityHint(texts.manageHint)
-                        }
-                    } label: {
-                        withIcon {
-                            texts.planName(status.planName)
+                } label: {
+                    withIcon {
+                        status.planTitle
 
-                            if let detail = status.detail {
-                                texts.detail(detail)
-                            }
-                        }
+                        status.detailText
                     }
                 }
             }
-        } else {
-            Color.clear.frame(height: 0)
-                .onAppear { paywall.logger.fault("PaywallStatusRow has no words: PaywallTexts.statusRow is missing") }
         }
     }
 

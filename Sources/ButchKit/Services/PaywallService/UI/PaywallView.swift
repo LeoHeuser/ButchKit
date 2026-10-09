@@ -99,8 +99,8 @@ struct PaywallView: View {
             // button. Under the paywall's own header, `controlsUnderHeader()` replaces this with
             // the picker placed in the scroll view.
                 .subscriptionStoreControlStyle(.automatic)
-                .policyDestination(for: .privacyPolicy, url: paywall.configuration.privacyPolicyURL, title: paywall.texts.sheet.privacyPolicyTitle)
-                .policyDestination(for: .termsOfService, url: paywall.configuration.termsOfServiceURL, title: paywall.texts.sheet.termsOfServiceTitle)
+                .policyDestination(for: .privacyPolicy, url: paywall.configuration.privacyPolicyURL, title: PaywallStrings.privacyPolicy)
+                .policyDestination(for: .termsOfService, url: paywall.configuration.termsOfServiceURL, title: PaywallStrings.termsOfService)
             // Both handlers cover every StoreKit view inside, the lifetime products included.
                 .onInAppPurchaseStart { product in
                     paywall.report(.purchaseStarted(source: request.source, productID: product.id))
@@ -108,9 +108,9 @@ struct PaywallView: View {
                 .onInAppPurchaseCompletion { product, result in
                     await handlePurchaseCompletion(of: product, result)
                 }
-                .alert(Text(paywall.texts.sheet.purchaseFailedTitle), isPresented: $showsPurchaseFailedAlert) {
+                .alert(Text(PaywallStrings.purchaseFailedTitle), isPresented: $showsPurchaseFailedAlert) {
                 } message: {
-                    Text(paywall.texts.sheet.purchaseFailedMessage)
+                    Text(PaywallStrings.purchaseFailedMessage)
                 }
                 .alert(Text(restoreAlert.title), isPresented: $showsRestoreAlert) {
                 } message: {
@@ -217,8 +217,8 @@ struct PaywallView: View {
             if offersBoth {
                 // Each segment reads its own title to VoiceOver, so the picker needs no label.
                 Picker(selection: $offer) {
-                    Text(paywall.texts.offerTabs?.subscription ?? "").tag(Offer.subscription)
-                    Text(paywall.texts.offerTabs?.oneTime ?? "").tag(Offer.oneTime)
+                    Text(PaywallStrings.subscriptionTab).tag(Offer.subscription)
+                    Text(PaywallStrings.oneTimeTab).tag(Offer.oneTime)
                 } label: {
                     EmptyView()
                 }
@@ -247,17 +247,13 @@ struct PaywallView: View {
     }
     
     /// The restore alert's words, decided once. Split over two switches, a title could end up
-    /// over another outcome's message, which is what grouping ``PaywallTexts/Sheet/RestoreOffline``
-    /// set out to prevent. An app that words no offline case falls back to the failure it is.
-    private var restoreAlert: (title: String, message: String?) {
-        let sheet = paywall.texts.sheet
+    /// over another outcome's message.
+    private var restoreAlert: (title: LocalizedStringResource, message: LocalizedStringResource?) {
         switch restoreOutcome {
-        case .restored: return (sheet.restoreSucceededTitle, nil)
-        case .nothingToRestore: return (sheet.nothingToRestoreTitle, nil)
-        case .failed: return (sheet.restoreFailedTitle, sheet.restoreFailedMessage)
-        case .offline:
-            guard let offline = sheet.restoreOffline else { return (sheet.restoreFailedTitle, sheet.restoreFailedMessage) }
-            return (offline.title, offline.message)
+        case .restored: return (PaywallStrings.restoreSucceededTitle, nil)
+        case .nothingToRestore: return (PaywallStrings.nothingToRestoreTitle, nil)
+        case .failed: return (PaywallStrings.restoreFailedTitle, PaywallStrings.restoreFailedMessage)
+        case .offline: return (PaywallStrings.restoreOfflineTitle, PaywallStrings.restoreOfflineMessage)
         case .cancelled, nil: return ("", nil)
         }
     }
@@ -266,7 +262,7 @@ struct PaywallView: View {
     /// Styled by where it sits: floating over the photos, or in the toolbar.
     private var restoreButton: some View {
         Button(action: restore) {
-            Text(paywall.texts.sheet.restorePurchases)
+            Text(PaywallStrings.restorePurchases)
                 // Kept in place under the spinner, so the button keeps its size.
                 .opacity(isRestoring ? 0 : 1)
                 .overlay {
@@ -276,7 +272,7 @@ struct PaywallView: View {
                 }
         }
         .disabled(isRestoring)
-        .accessibilityLabel(Text(paywall.texts.sheet.restorePurchases))
+        .accessibilityLabel(Text(PaywallStrings.restorePurchases))
     }
 
     private func restore() {
@@ -293,13 +289,13 @@ struct PaywallView: View {
     /// Closes the paywall. Through the service rather than `@Environment(\.dismiss)`, so the
     /// request is cleared with the sheet and does not come back.
     private var dismissButton: some View {
-        Button(paywall.texts.sheet.dismiss, systemImage: "xmark") {
+        Button(PaywallStrings.dismiss, systemImage: "xmark") {
             paywall.dismissPaywall()
         }
     }
 
     /// The same button over the photos, where the toolbar's would need a navigation bar. VoiceOver
-    /// reads the app's word for it; the button shows only the symbol.
+    /// reads its word; the button shows only the symbol.
     private var closeButton: some View {
         dismissButton
             .labelStyle(.iconOnly)

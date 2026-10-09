@@ -34,8 +34,8 @@ struct PaywallOneTimeStore: View {
             VStack(spacing: 16) {
                 // Over the products, where StoreKit puts the same line over the plans.
                 policyLine
-                if nothingLoaded, let texts = paywall.texts.sheet.productsUnavailable {
-                    unavailable(texts)
+                if nothingLoaded {
+                    unavailable
                 }
                 ForEach(paywall.configuration.lifetimeProductIDs, id: \.self) { productID in
                     ProductView(id: productID)
@@ -45,7 +45,6 @@ struct PaywallOneTimeStore: View {
                             // user what is already theirs. Every one of them, not only the one the
                             // entitlement is named after: an app may sell several.
                             isOwned: paywall.ownedLifetimeProductIDs.contains(productID),
-                            purchasedLabel: paywall.texts.sheet.purchasedLabel,
                             logger: paywall.logger,
                             onLoad: { loaded in
                                 if loaded {
@@ -63,21 +62,23 @@ struct PaywallOneTimeStore: View {
         .sheet(item: $policy) { policy in
             NavigationStack {
                 GatedWebView(policy.url, title: policy.title)
-                    .modifier(DismissSheetButton(title: Text(paywall.texts.sheet.dismiss)))
+                    .modifier(DismissSheetButton(title: Text(PaywallStrings.dismiss)))
             }
         }
     }
 
     /// Said once for the whole side rather than per card, with the way to try again.
-    private func unavailable(_ texts: PaywallTexts.Sheet.ProductsUnavailable) -> some View {
+    private var unavailable: some View {
         ContentUnavailableView {
-            Text(texts.title)
+            Text(PaywallStrings.productsUnavailableTitle)
         } description: {
-            Text(texts.message)
+            Text(PaywallStrings.productsUnavailableMessage)
         } actions: {
-            Button(texts.retry) {
+            Button {
                 missingProductIDs = []
                 reloadToken += 1
+            } label: {
+                Text(PaywallStrings.retry)
             }
         }
     }
@@ -100,42 +101,24 @@ struct PaywallOneTimeStore: View {
     @ViewBuilder
     private var policyLine: some View {
         if let policies = paywall.configuration.policies {
-            let texts = paywall.texts.sheet
-            Group {
-                if let connector = texts.policyConnector {
-                    Text(Self.policySentence(terms: texts.termsOfServiceTitle, privacy: texts.privacyPolicyTitle, connector: connector))
-                        .environment(\.openURL, OpenURLAction { url in
-                            open(url, in: policies)
-                        })
-                } else {
-                    // Without the connecting word there is no sentence to build, so the two stand
-                    // side by side. See ``PaywallTexts/Sheet/policyConnector``.
-                    HStack(spacing: 24) {
-                        Button(texts.termsOfServiceTitle) {
-                            policy = Policy(url: policies.terms, title: texts.termsOfServiceTitle)
-                        }
-                        Button(texts.privacyPolicyTitle) {
-                            policy = Policy(url: policies.privacy, title: texts.privacyPolicyTitle)
-                        }
-                    }
-                    .buttonStyle(.plain)
-                    .foregroundStyle(.tint)
-                }
-            }
-            .font(.footnote)
-            .multilineTextAlignment(.center)
-            .frame(maxWidth: .infinity)
+            Text(Self.policySentence(terms: PaywallStrings.termsOfService, privacy: PaywallStrings.privacyPolicy, connector: PaywallStrings.policyConnector))
+                .environment(\.openURL, OpenURLAction { url in
+                    open(url, in: policies)
+                })
+                .font(.footnote)
+                .multilineTextAlignment(.center)
+                .frame(maxWidth: .infinity)
         }
     }
 
     /// Terms first, then the privacy policy, as StoreKit words it over the plans. The two titles
     /// are links on a scheme of ours, which never leaves the sheet: ``open(_:in:)`` catches it.
     ///
-    /// A space on each side of the connecting word, so an app translates the bare conjunction.
+    /// The connecting word brings its own spaces, or none in a language that writes none.
     /// Static and pure, so the order and the two links can be tested without StoreKit.
     static func policySentence(terms: LocalizedStringResource, privacy: LocalizedStringResource, connector: LocalizedStringResource) -> AttributedString {
         var sentence = link(String(localized: terms), to: termsURL)
-        var word = AttributedString(" \(String(localized: connector)) ")
+        var word = AttributedString(String(localized: connector))
         word.foregroundColor = .secondary
         sentence += word
         sentence += link(String(localized: privacy), to: privacyURL)
@@ -151,12 +134,11 @@ struct PaywallOneTimeStore: View {
     /// Turns a tapped link back into the page it stands for, so it opens in the sheet below rather
     /// than in the browser.
     private func open(_ url: URL, in policies: (privacy: String, terms: String)) -> OpenURLAction.Result {
-        let texts = paywall.texts.sheet
         switch url {
         case Self.termsURL:
-            policy = Policy(url: policies.terms, title: texts.termsOfServiceTitle)
+            policy = Policy(url: policies.terms, title: PaywallStrings.termsOfService)
         case Self.privacyURL:
-            policy = Policy(url: policies.privacy, title: texts.privacyPolicyTitle)
+            policy = Policy(url: policies.privacy, title: PaywallStrings.privacyPolicy)
         default:
             return .systemAction
         }
@@ -175,7 +157,6 @@ struct PaywallOneTimeStore: View {
 private struct PaywallProductStyle: ProductViewStyle {
     let productID: String
     let isOwned: Bool
-    let purchasedLabel: String?
     let logger: Logger
     /// Tells the store whether the product loaded, see ``PaywallOneTimeStore/missingProductIDs``.
     let onLoad: (Bool) -> Void
@@ -204,7 +185,7 @@ private struct PaywallProductStyle: ProductViewStyle {
                     Group {
                         if isOwned {
                             Image(systemName: "checkmark")
-                                .accessibilityLabel(purchasedLabel ?? product.displayPrice)
+                                .accessibilityLabel(Text(PaywallStrings.purchased))
                         } else {
                             Text(verbatim: product.displayPrice)
                         }

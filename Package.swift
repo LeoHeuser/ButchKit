@@ -10,6 +10,9 @@ import PackageDescription
 
 let package = Package(
     name: "ButchKit",
+    // ButchKit words its own components, see "Localization" in `Documentation/ButchKit.md`.
+    // English is the source; every other language comes from the catalogs below.
+    defaultLocalization: "en",
     platforms: [
         .iOS(.v17),
         .macOS(.v14)
@@ -27,7 +30,10 @@ let package = Package(
             exclude: ["Services/PaywallService/Preview/ButchKitPreview.storekit"],
             resources: [
                 // Placeholder photos for the paywall previews, see PaywallPreviewData.swift.
-                .process("Services/PaywallService/Preview/PaywallPreviewAssets.xcassets")
+                .process("Services/PaywallService/Preview/PaywallPreviewAssets.xcassets"),
+                // Each component's own words, one catalog per component.
+                .process("Services/PaywallService/Paywall.xcstrings"),
+                .process("General Utility/ExternalPackagesView/ExternalPackages.xcstrings")
             ]
         ),
         .testTarget(

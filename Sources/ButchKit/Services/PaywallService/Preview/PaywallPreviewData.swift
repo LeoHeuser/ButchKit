@@ -8,54 +8,6 @@
 import SwiftUI
 
 #if DEBUG
-extension PaywallTexts {
-    /// Plain English in place of keys: a package has no catalog, so a preview shows whatever it
-    /// is given.
-    static let preview = PaywallTexts(
-        sheet: Sheet(
-            dismiss: "Close",
-            privacyPolicyTitle: "Privacy Policy",
-            termsOfServiceTitle: "Terms of Service",
-            purchaseFailedTitle: "The purchase didn't go through",
-            purchaseFailedMessage: "Nothing was charged. Try again in a moment.",
-            restorePurchases: "Restore Purchases",
-            restoreSucceededTitle: "Purchase Restored",
-            nothingToRestoreTitle: "No Purchase to Restore",
-            restoreFailedTitle: "Restore Failed",
-            restoreFailedMessage: "Your purchase could not be restored. Try again in a moment.",
-            restoreOffline: .init(
-                title: "No Connection",
-                message: "The App Store could not be reached. Check your internet connection and try again."
-            ),
-            purchasedLabel: "Purchased",
-            productsUnavailable: .init(
-                title: "Purchases Unavailable",
-                message: "Check your connection and try again.",
-                retry: "Try Again"
-            )
-        ),
-        offerTabs: OfferTabs(subscription: "Subscription", oneTime: "One-Time Purchase"),
-        statusRow: StatusRow(
-            offer: "See subscription plans",
-            offerLabel: "See subscription plans",
-            offerHint: "Opens the subscription offer.",
-            fallbackPlanName: "Plus",
-            manage: "Manage",
-            manageLabel: "Manage subscription",
-            manageHint: "Opens Apple's subscription management.",
-            renews: { Text("Renews on \($0, format: .dateTime.day().month().year())") },
-            ends: { Text("Ends on \($0, format: .dateTime.day().month().year())") },
-            billingIssue: "Payment didn't go through."
-        ),
-        subscriptionOverlap: SubscriptionOverlap(
-            title: "Your subscription is still running",
-            message: "Your purchase unlocks everything for good. The subscription renews until you cancel it.",
-            manage: "Manage Subscription",
-            later: "Later"
-        )
-    )
-}
-
 extension ImageResource {
     /// The placeholders in `PaywallPreviewAssets.xcassets`, standing in for an app's own photos.
     /// Only Xcode compiles the catalog, so these resolve in previews and nowhere else.
