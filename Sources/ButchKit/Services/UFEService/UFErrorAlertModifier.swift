@@ -28,7 +28,7 @@
  ## Localization
  The error's `title` and `message` are looked up in the app's `Errors.xcstrings`. The alert's
  button is named by the app through `dismissTitle`: a button is a button wherever it appears, so
- its key usually lives on the default table. ButchKit ships no strings of its own.
+ its key usually lives on the default table. This component has no catalog of its own.
 
  */
 
