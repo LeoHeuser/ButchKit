@@ -4,7 +4,21 @@ import Testing
 /// A word missing from a catalog is not an error anyone sees: the app shows a raw key, or ButchKit's
 /// English in the middle of another language. These tests read the catalogs and the code that looks
 /// the words up, so a gap fails here rather than on a user's screen.
-@Suite("Localization")
+/// At file scope, because the suite's own trait cannot reach into the suite.
+private let packageSources = URL(filePath: #filePath)
+    .deletingLastPathComponent()
+    .appending(path: "../../Sources/ButchKit")
+    .standardized
+
+// A device has no copy of the path the tests were built from, so the suite runs on a Mac or a
+// simulator only, as in CI.
+@Suite(
+    "Localization",
+    .enabled(
+        if: FileManager.default.fileExists(atPath: packageSources.path(percentEncoded: false)),
+        "Reads the package's sources, which only a Mac or a simulator has on disk"
+    )
+)
 struct LocalizationTests {
     /// Each component's catalog, named after its table, in the component's folder.
     private static let components = [
@@ -12,10 +26,7 @@ struct LocalizationTests {
         "General Utility/ExternalPackagesView/ExternalPackages.xcstrings",
     ]
 
-    private static let sources = URL(filePath: #filePath)
-        .deletingLastPathComponent()
-        .appending(path: "../../Sources/ButchKit")
-        .standardized
+    private static let sources = packageSources
 
     private struct Catalog: Decodable {
         struct Entry: Decodable {
