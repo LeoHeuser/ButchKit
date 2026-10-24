@@ -4440,139 +4440,139 @@
         "ar" : {
           "stringUnit" : {
             "state" : "translated",
-            "value" : "شراء مدى الحياة"
+            "value" : "شراء لمرة واحدة"
           }
         },
         "da" : {
           "stringUnit" : {
             "state" : "translated",
-            "value" : "Livstidskøb"
+            "value" : "Engangskøb"
           }
         },
         "de" : {
           "stringUnit" : {
             "state" : "translated",
-            "value" : "Lebenslange Lizenz"
+            "value" : "Einmalkauf"
           }
         },
         "en" : {
           "stringUnit" : {
             "state" : "translated",
-            "value" : "Lifetime Purchase"
+            "value" : "One-Time Purchase"
           }
         },
         "es" : {
           "stringUnit" : {
             "state" : "translated",
-            "value" : "Compra vitalicia"
+            "value" : "Compra única"
           }
         },
         "fi" : {
           "stringUnit" : {
             "state" : "translated",
-            "value" : "Elinikäinen osto"
+            "value" : "Kertaosto"
           }
         },
         "fr" : {
           "stringUnit" : {
             "state" : "translated",
-            "value" : "Achat à vie"
+            "value" : "Achat unique"
           }
         },
         "hi" : {
           "stringUnit" : {
             "state" : "translated",
-            "value" : "आजीवन ख़रीदारी"
+            "value" : "एक बार की ख़रीदारी"
           }
         },
         "id" : {
           "stringUnit" : {
             "state" : "translated",
-            "value" : "Pembelian Seumur Hidup"
+            "value" : "Pembelian Satu Kali"
           }
         },
         "it" : {
           "stringUnit" : {
             "state" : "translated",
-            "value" : "Acquisto a vita"
+            "value" : "Acquisto singolo"
           }
         },
         "ja" : {
           "stringUnit" : {
             "state" : "translated",
-            "value" : "永久ライセンス"
+            "value" : "買い切り"
           }
         },
         "ko" : {
           "stringUnit" : {
             "state" : "translated",
-            "value" : "평생 이용권"
+            "value" : "일회성 구입"
           }
         },
         "ms" : {
           "stringUnit" : {
             "state" : "translated",
-            "value" : "Pembelian Seumur Hidup"
+            "value" : "Pembelian Sekali"
           }
         },
         "nl" : {
           "stringUnit" : {
             "state" : "translated",
-            "value" : "Levenslange aankoop"
+            "value" : "Eenmalige aankoop"
           }
         },
         "pl" : {
           "stringUnit" : {
             "state" : "translated",
-            "value" : "Zakup dożywotni"
+            "value" : "Zakup jednorazowy"
           }
         },
         "pt-BR" : {
           "stringUnit" : {
             "state" : "translated",
-            "value" : "Compra vitalícia"
+            "value" : "Compra única"
           }
         },
         "pt-PT" : {
           "stringUnit" : {
             "state" : "translated",
-            "value" : "Compra vitalícia"
+            "value" : "Compra única"
           }
         },
         "ru" : {
           "stringUnit" : {
             "state" : "translated",
-            "value" : "Бессрочная покупка"
+            "value" : "Разовая покупка"
           }
         },
         "sv" : {
           "stringUnit" : {
             "state" : "translated",
-            "value" : "Livstidsköp"
+            "value" : "Engångsköp"
           }
         },
         "tr" : {
           "stringUnit" : {
             "state" : "translated",
-            "value" : "Ömür Boyu Satın Alma"
+            "value" : "Tek Seferlik Satın Alma"
           }
         },
         "uk" : {
           "stringUnit" : {
             "state" : "translated",
-            "value" : "Безстрокова покупка"
+            "value" : "Одноразова покупка"
           }
         },
         "zh-Hans" : {
           "stringUnit" : {
             "state" : "translated",
-            "value" : "终身购买"
+            "value" : "一次性购买"
           }
         },
         "zh-Hant" : {
           "stringUnit" : {
             "state" : "translated",
-            "value" : "終身購買"
+            "value" : "單次購買"
           }
         }
       }

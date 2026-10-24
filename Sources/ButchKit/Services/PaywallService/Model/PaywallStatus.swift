@@ -139,7 +139,8 @@ public extension PaywallStatus {
     var offerHint: Text { Text("accessibility.hint.paywallStatus.offer", tableName: "Paywall", bundle: .module) }
 
     /// The plan's name: the App Store's own once loaded, until then the app's
-    /// ``PaywallConfiguration/planName`` or ButchKit's "Subscription" or "Lifetime Purchase".
+    /// ``PaywallConfiguration/planName`` or ButchKit's "Subscription" or "One-Time Purchase", the
+    /// same word as the paywall's segment.
     var planTitle: Text {
         // A product name from App Store Connect is already localized there.
         if let planName { return Text(verbatim: planName) }
@@ -152,8 +153,9 @@ public extension PaywallStatus {
     var detailText: Text? {
         detail.map { detail in
             switch detail {
-            case .renews(let date): Text("label.paywallStatus.renews \(date.formatted(Self.dateFormat))", tableName: "Paywall", bundle: .module)
-            case .ends(let date): Text("label.paywallStatus.ends \(date.formatted(Self.dateFormat))", tableName: "Paywall", bundle: .module)
+            // Formatted by `Text`, so the date follows the view's locale rather than the device's.
+            case .renews(let date): Text("label.paywallStatus.renews \(date, format: Self.dateFormat)", tableName: "Paywall", bundle: .module)
+            case .ends(let date): Text("label.paywallStatus.ends \(date, format: Self.dateFormat)", tableName: "Paywall", bundle: .module)
             case .billingIssue: Text("error.paywallStatus.billingIssue", tableName: "Paywall", bundle: .module)
             }
         }
