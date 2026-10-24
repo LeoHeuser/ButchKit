@@ -1,8 +1,8 @@
+@../.xcodeSetup/setup/GENERAL.md
+
 # Library Description
 
 The ButchKit is a helpful SDK containing small tools and modifiers to assist with the development of Swift applications for iOS, iPadOS and macOS. It contains functions that are not developed by Apple, but which could be useful in many projects.
-
-
 
 # Requirements
 
