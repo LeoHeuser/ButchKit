@@ -26,7 +26,9 @@
  Use the reinforcement form only inside views that live below a view that already applied `.userFacingErrors(ufes, dismissTitle:)`, otherwise the environment lookup will trap at runtime.
 
  ## Localization
- The error's `title` and `message` are looked up in the app's `Errors.xcstrings`. The alert's
+ The error's `titleResource` and `messageResource` are shown as they are; they name their table,
+ `Errors`, themselves. Where an error has none, its `title` and `message` keys are looked up in the
+ app's `Errors.xcstrings`. The alert's
  button is named by the app through `dismissTitle`: a button is a button wherever it appears, so
  its key usually lives on the default table. This component has no catalog of its own.
 
@@ -47,7 +49,13 @@ struct UserFacingErrorsModifier: ViewModifier {
     private var title: Text {
         guard let error = ufes.currentError else { return Text(verbatim: "") }
 
-        return Text(error: error.title)
+        return Self.text(error.titleResource, key: error.title)
+    }
+
+    /// The resource where the error has one, otherwise its key from `Errors.xcstrings`.
+    private static func text(_ resource: LocalizedStringResource?, key: LocalizedStringKey) -> Text {
+        guard let resource else { return Text(error: key) }
+        return Text(resource)
     }
 
     func body(content: Content) -> some View {
@@ -64,7 +72,7 @@ struct UserFacingErrorsModifier: ViewModifier {
                 Button(dismissTitle, role: .cancel) { ufes.dismiss() }
             },
             message: { error in
-                Text(error: error.message)
+                Self.text(error.messageResource, key: error.message)
             }
         )
     }

@@ -31,11 +31,15 @@
  
  Both keys resolve in the app's `Errors.xcstrings`, at every level. The alert's own button is
  named by the app through `dismissTitle`, usually from its default table. See `StringTable`.
- 
+ A key literal handed to these methods is extracted by Xcode into `Localizable.xcstrings`, though,
+ not into `Errors`: it has to be moved there by hand.
+
  Services that throw their own `UFError` types can hand them in directly:
  ```swift
  ufes.report(MyDomainError.network(underlying: someError))
  ```
+ A `UFError` that names its texts as resources with the `Errors` table is extracted into
+ `Errors.xcstrings` by Xcode itself, which makes it the preferred way for an app's errors.
  
  Each call is logged through `os.Logger` and replaces any currently presented error. `info` logs at `notice`,
  `warning` at `error` and `fault` at `fault`, so every level survives in the field. The underlying error
