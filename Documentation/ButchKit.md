@@ -111,7 +111,10 @@ internal type shared across components: split into separate targets, it has to b
 `Sources/ButchKit/Services/UFEService/`
 
 - `UFEService` — collects errors from anywhere and surfaces them through one native alert.
-- `UFError`, `UFErrorLevel` — the shape an error needs to be presentable.
+- `UFError`, `UFErrorLevel` — the shape an error needs to be presentable. Its texts are best named
+  as `titleResource` and `messageResource` with the `Errors` table, so Xcode extracts them into
+  `Errors.xcstrings`; the older `title` and `message` keys still work, but their literals are
+  extracted into `Localizable.xcstrings`.
 - `View.userFacingErrors(_:dismissTitle:)` — root-level integration.
 - `View.userFacingErrors(dismissTitle:)` — reinforcement for views that are themselves sheets.
 
