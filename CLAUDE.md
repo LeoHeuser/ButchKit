@@ -1,4 +1,4 @@
-@../.xcodeSetup/setup/GENERAL.md
+@../.xcodeSetup/files/GENERAL.md
 
 # Library Description
 
